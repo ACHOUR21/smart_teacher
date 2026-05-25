@@ -1,30 +1,40 @@
-import { Controller, Get, Patch, Param, UseGuards, Req } from '@nestjs/common'
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger'
-import { NotificationsService } from './notifications.service'
-import { JwtAuthGuard } from '../auth/guards/jwt.guard'
+import { Controller, Get, Patch, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { NotificationsService } from './notifications.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 
 @ApiTags('notifications')
-@Controller('notifications')
-@UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
+@Controller('notifications')
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get my notifications' })
-  getAll(@Req() req: any) {
-    return this.notificationsService.getForUser(req.user.sub)
+  getAll(
+    @Request() req: { user: { sub: string } },
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.notificationsService.getForUser(
+      req.user.sub,
+      page ? Number(page) : 1,
+      limit ? Number(limit) : 20,
+    );
+  }
+
+  @Get('unread-count')
+  getUnreadCount(@Request() req: { user: { sub: string } }) {
+    return this.notificationsService.getUnreadCount(req.user.sub);
   }
 
   @Patch(':id/read')
-  @ApiOperation({ summary: 'Mark notification as read' })
-  markRead(@Param('id') id: string) {
-    return this.notificationsService.markRead(id)
+  markRead(@Param('id') id: string, @Request() req: { user: { sub: string } }) {
+    return this.notificationsService.markRead(id, req.user.sub);
   }
 
   @Patch('read-all')
-  @ApiOperation({ summary: 'Mark all notifications as read' })
-  markAllRead(@Req() req: any) {
-    return this.notificationsService.markAllRead(req.user.sub)
+  markAllRead(@Request() req: { user: { sub: string } }) {
+    return this.notificationsService.markAllRead(req.user.sub);
   }
 }

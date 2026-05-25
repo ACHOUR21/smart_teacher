@@ -1,111 +1,125 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
-import { PrismaService } from '../prisma/prisma.service'
+import {
+  Injectable, NotFoundException, ForbiddenException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class CoursesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(query: { page?: number; perPage?: number; search?: string; status?: string }) {
-    const { page = 1, perPage = 20, search, status } = query
-    const skip = (page - 1) * perPage
-
-    const where = {
-      ...(status && { status: status as any }),
-      ...(search && { title: { contains: search, mode: 'insensitive' as const } }),
+  async findAll({
+    page = 1,
+    limit = 20,
+    search,
+    teacherId,
+  }: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    teacherId?: string;
+  }) {
+    const where: Record<string, unknown> = { status: 'PUBLISHED' };
+    if (teacherId) where.teacherId = teacherId;
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ];
     }
 
-    const [data, total] = await this.prisma.$transaction([
+    const [total, courses] = await this.prisma.$transaction([
+      this.prisma.course.count({ where }),
       this.prisma.course.findMany({
         where,
-        skip,
-        take: perPage,
+        skip: (page - 1) * limit,
+        take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
-          teacher: { include: { user: { select: { name: true, avatar: true } } } },
-          _count: { select: { enrollments: true } },
+          teacher: { include: { user: { select: { name: true } } } },
+          _count: { select: { enrollments: true, chapters: true } },
         },
       }),
-      this.prisma.course.count({ where }),
-    ])
+    ]);
 
-    return { data, total, page, perPage, totalPages: Math.ceil(total / perPage) }
+    return { data: courses, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, userId?: string) {
     const course = await this.prisma.course.findUnique({
       where: { id },
       include: {
-        teacher: { include: { user: { select: { name: true, avatar: true } } } },
+        teacher: { include: { user: { select: { name: true, avatarUrl: true } } } },
         chapters: {
           orderBy: { order: 'asc' },
-          include: { lessons: { orderBy: { order: 'asc' } } },
+          include: {
+            lessons: {
+              orderBy: { order: 'asc' },
+              include: { _count: { select: { resources: true } } },
+            },
+          },
         },
         _count: { select: { enrollments: true } },
       },
-    })
-    if (!course) throw new NotFoundException('Course not found')
-    return course
+    });
+    if (!course) throw new NotFoundException('Course not found');
+    return course;
   }
 
-  async create(teacherId: string, data: any) {
-    const teacher = await this.prisma.teacher.findUnique({ where: { userId: teacherId } })
-    if (!teacher) throw new ForbiddenException('Teacher profile not found')
-
+  async create(
+    dto: { title: string; description?: string; subject?: string; gradeLevel?: string },
+    userId: string,
+  ) {
+    const teacher = await this.prisma.teacher.findUnique({ where: { userId } });
+    if (!teacher) throw new ForbiddenException('Only teachers can create courses');
     return this.prisma.course.create({
-      data: { ...data, teacherId: teacher.id },
-    })
+      data: { ...dto, teacherId: teacher.id, status: 'DRAFT' },
+    });
   }
 
-  async update(courseId: string, teacherUserId: string, data: any) {
-    const course = await this.prisma.course.findUniqueOrThrow({
-      where: { id: courseId },
-      include: { teacher: true },
-    })
-
-    if (course.teacher.userId !== teacherUserId) {
-      throw new ForbiddenException('Not authorized to edit this course')
-    }
-
-    return this.prisma.course.update({ where: { id: courseId }, data })
+  async update(
+    id: string,
+    dto: { title?: string; description?: string; status?: string },
+    userId: string,
+  ) {
+    const course = await this.prisma.course.findUnique({ where: { id }, include: { teacher: true } });
+    if (!course) throw new NotFoundException('Course not found');
+    if (course.teacher.userId !== userId) throw new ForbiddenException();
+    return this.prisma.course.update({ where: { id }, data: dto as never });
   }
 
-  async enroll(courseId: string, studentUserId: string) {
-    const student = await this.prisma.student.findUnique({ where: { userId: studentUserId } })
-    if (!student) throw new ForbiddenException('Student profile not found')
-
+  async enroll(courseId: string, userId: string) {
+    const student = await this.prisma.student.findUnique({ where: { userId } });
+    if (!student) throw new ForbiddenException('Only students can enroll');
     return this.prisma.enrollment.upsert({
       where: { studentId_courseId: { studentId: student.id, courseId } },
       create: { studentId: student.id, courseId },
       update: {},
-    })
+    });
   }
 
-  async getMyTeacherCourses(teacherUserId: string) {
-    const teacher = await this.prisma.teacher.findUnique({ where: { userId: teacherUserId } })
-    if (!teacher) return []
-
-    return this.prisma.course.findMany({
-      where: { teacherId: teacher.id },
-      orderBy: { updatedAt: 'desc' },
-      include: { _count: { select: { enrollments: true } } },
-    })
-  }
-
-  async getMyStudentCourses(studentUserId: string) {
-    const student = await this.prisma.student.findUnique({ where: { userId: studentUserId } })
-    if (!student) return []
-
+  async getMyEnrollments(userId: string) {
+    const student = await this.prisma.student.findUnique({ where: { userId } });
+    if (!student) return [];
     return this.prisma.enrollment.findMany({
       where: { studentId: student.id },
-      orderBy: { enrolledAt: 'desc' },
       include: {
         course: {
           include: {
             teacher: { include: { user: { select: { name: true } } } },
-            _count: { select: { enrollments: true } },
+            _count: { select: { chapters: true, enrollments: true } },
           },
         },
       },
-    })
+    });
+  }
+
+  async getMyTeacherCourses(userId: string) {
+    const teacher = await this.prisma.teacher.findUnique({ where: { userId } });
+    if (!teacher) return [];
+    return this.prisma.course.findMany({
+      where: { teacherId: teacher.id },
+      orderBy: { createdAt: 'desc' },
+      include: { _count: { select: { enrollments: true, chapters: true } } },
+    });
   }
 }
