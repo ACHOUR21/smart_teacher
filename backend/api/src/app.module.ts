@@ -8,6 +8,7 @@ import { AssignmentsModule } from './assignments/assignments.module'
 import { LiveSessionsModule } from './live-sessions/live-sessions.module'
 import { NotificationsModule } from './notifications/notifications.module'
 import { AIModule } from './ai/ai.module'
+import { WebsocketModule } from './websocket/websocket.module'
 import { PrismaModule } from './prisma/prisma.module'
 
 @Module({
@@ -22,6 +23,7 @@ import { PrismaModule } from './prisma/prisma.module'
     LiveSessionsModule,
     NotificationsModule,
     AIModule,
+    WebsocketModule,
   ],
 })
 export class AppModule {}
