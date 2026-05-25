@@ -1,134 +1,121 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import Link from 'next/link'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { Eye, EyeOff, Loader2, GraduationCap, BookOpen, Heart, Shield } from 'lucide-react'
-import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
+import { useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Eye, EyeOff, GraduationCap, BookOpen, Heart, Shield, Loader2 } from 'lucide-react';
+import { useAuth } from '@/lib/auth-context';
+import { ROLE_REDIRECTS } from '@/lib/constants';
 
 const schema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
+  name: z.string().min(2, 'Name is required'),
+  email: z.string().email('Enter a valid email'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  role: z.enum(['teacher', 'student', 'parent', 'admin']),
-})
-
-type FormData = z.infer<typeof schema>
+});
+type FormData = z.infer<typeof schema>;
 
 const roles = [
-  { value: 'student', label: 'Student', icon: BookOpen, color: 'from-violet-500 to-purple-500' },
-  { value: 'teacher', label: 'Teacher', icon: GraduationCap, color: 'from-blue-500 to-cyan-500' },
-  { value: 'parent', label: 'Parent', icon: Heart, color: 'from-rose-500 to-pink-500' },
-  { value: 'admin', label: 'Admin', icon: Shield, color: 'from-amber-500 to-orange-500' },
-] as const
+  { id: 'STUDENT', label: 'Student', icon: GraduationCap, desc: 'Learn & grow' },
+  { id: 'TEACHER', label: 'Teacher', icon: BookOpen, desc: 'Teach & inspire' },
+  { id: 'PARENT', label: 'Parent', icon: Heart, desc: 'Monitor progress' },
+  { id: 'ADMIN', label: 'Admin', icon: Shield, desc: 'Manage platform' },
+];
 
 export default function RegisterPage() {
-  const [showPassword, setShowPassword] = useState(false)
+  const router = useRouter();
+  const { register: authRegister } = useAuth();
+  const [role, setRole] = useState('STUDENT');
+  const [showPass, setShowPass] = useState(false);
+  const [error, setError] = useState('');
+
   const {
     register,
     handleSubmit,
-    setValue,
-    watch,
     formState: { errors, isSubmitting },
-  } = useForm<FormData>({
-    resolver: zodResolver(schema),
-    defaultValues: { role: 'student' },
-  })
-
-  const selectedRole = watch('role')
+  } = useForm<FormData>({ resolver: zodResolver(schema) });
 
   async function onSubmit(data: FormData) {
     try {
-      await new Promise((r) => setTimeout(r, 1000))
-      toast.success('Account created! Welcome to EduAI.')
+      setError('');
+      const user = await authRegister(data.name, data.email, data.password, role);
+      const dest = ROLE_REDIRECTS[user.role as keyof typeof ROLE_REDIRECTS] ?? '/student';
+      router.push(dest);
     } catch {
-      toast.error('Something went wrong. Please try again.')
+      setError('Registration failed. This email may already be in use.');
     }
   }
 
   return (
-    <div className="animate-fade-in">
-      <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Create your account</h1>
-      <p className="text-slate-500 dark:text-slate-400 mb-8">
-        Already have an account?{' '}
-        <Link href="/login" className="text-primary-600 font-medium hover:underline">
-          Sign in
-        </Link>
-      </p>
+    <div className="flex flex-col justify-center min-h-full py-4">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Create your account</h1>
+        <p className="text-slate-500 dark:text-slate-400 mt-1">Join thousands of learners worldwide</p>
+      </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        {/* Role picker */}
-        <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">I am a...</label>
-          <div className="grid grid-cols-4 gap-2">
-            {roles.map((role) => (
-              <button
-                key={role.value}
-                type="button"
-                onClick={() => setValue('role', role.value)}
-                className={cn(
-                  'flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all duration-200',
-                  selectedRole === role.value
-                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/40'
-                    : 'border-slate-200 dark:border-slate-700 hover:border-primary-300'
-                )}
-              >
-                <div className={cn(
-                  'w-8 h-8 rounded-lg flex items-center justify-center',
-                  selectedRole === role.value
-                    ? `bg-gradient-to-br ${role.color}`
-                    : 'bg-slate-100 dark:bg-slate-700'
-                )}>
-                  <role.icon className={cn('w-4 h-4', selectedRole === role.value ? 'text-white' : 'text-slate-400')} />
-                </div>
-                <span className={cn('text-xs font-medium', selectedRole === role.value ? 'text-primary-700 dark:text-primary-400' : 'text-slate-500')}>
-                  {role.label}
-                </span>
-              </button>
-            ))}
-          </div>
+      {/* Role selector */}
+      <div className="grid grid-cols-2 gap-3 mb-6">
+        {roles.map(r => (
+          <button
+            key={r.id}
+            type="button"
+            onClick={() => setRole(r.id)}
+            className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${
+              role === r.id
+                ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                : 'border-slate-200 dark:border-slate-700 hover:border-primary-300'
+            }`}
+          >
+            <r.icon className={`h-6 w-6 ${ role === r.id ? 'text-primary-600' : 'text-slate-400' }`} />
+            <div className="text-center">
+              <p className={`text-sm font-semibold ${ role === r.id ? 'text-primary-700 dark:text-primary-400' : 'text-slate-700 dark:text-slate-300' }`}>{r.label}</p>
+              <p className="text-xs text-slate-400">{r.desc}</p>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {error && (
+        <div className="mb-4 px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-sm text-red-600 dark:text-red-400">
+          {error}
         </div>
+      )}
 
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Full name</label>
+          <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Full Name</label>
           <input
             {...register('name')}
-            type="text"
-            placeholder="John Doe"
-            className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+            placeholder="Your full name"
+            className="w-full px-3 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 placeholder:text-slate-400"
           />
           {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name.message}</p>}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Email</label>
+          <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Email address</label>
           <input
             {...register('email')}
             type="email"
-            placeholder="you@example.com"
-            className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+            placeholder="you@school.edu"
+            className="w-full px-3 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 placeholder:text-slate-400"
           />
           {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email.message}</p>}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Password</label>
+          <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Password</label>
           <div className="relative">
             <input
               {...register('password')}
-              type={showPassword ? 'text' : 'password'}
-              placeholder="Min. 8 characters"
-              className="w-full px-4 py-3 pr-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+              type={showPass ? 'text' : 'password'}
+              placeholder="At least 8 characters"
+              className="w-full px-3 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 placeholder:text-slate-400 pr-10"
             />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-            >
-              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            <button type="button" onClick={() => setShowPass(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+              {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
           {errors.password && <p className="mt-1 text-xs text-red-500">{errors.password.message}</p>}
@@ -137,19 +124,17 @@ export default function RegisterPage() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white font-semibold rounded-xl hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="w-full py-2.5 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
         >
-          {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-          Create account
+          {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+          {isSubmitting ? 'Creating account…' : 'Create Account'}
         </button>
-
-        <p className="text-xs text-slate-400 text-center">
-          By creating an account you agree to our{' '}
-          <Link href="/terms" className="text-primary-600 hover:underline">Terms</Link>
-          {' '}and{' '}
-          <Link href="/privacy" className="text-primary-600 hover:underline">Privacy Policy</Link>.
-        </p>
       </form>
+
+      <p className="mt-6 text-center text-sm text-slate-500">
+        Already have an account?{' '}
+        <Link href="/login" className="text-primary-600 font-medium hover:text-primary-700">Sign in</Link>
+      </p>
     </div>
-  )
+  );
 }

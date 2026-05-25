@@ -1,42 +1,28 @@
-import type { Metadata } from 'next'
-import { ThemeProvider } from '@/components/theme-provider'
-import { Toaster } from 'sonner'
-import './globals.css'
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+import { ThemeProvider } from '@/components/theme-provider';
+import { Toaster } from 'sonner';
+import { AuthProvider } from '@/lib/auth-context';
+
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: {
-    template: '%s | EduAI Platform',
-    default: 'EduAI Platform — AI-Powered Learning',
-  },
-  description:
-    'Enterprise-grade AI-powered educational platform with personalized learning, live classes, and advanced analytics.',
-  keywords: ['education', 'e-learning', 'AI tutor', 'online school', 'LMS'],
-  openGraph: {
-    type: 'website',
-    locale: 'en_US',
-    alternateLocale: ['fr_FR', 'ar_SA'],
-    siteName: 'EduAI Platform',
-  },
-}
+  title: 'EduAI – AI-Powered Learning Platform',
+  description: 'Intelligent education for students, teachers, and parents.',
+};
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="light"
-          enableSystem
-          disableTransitionOnChange={false}
-        >
-          {children}
-          <Toaster position="top-right" richColors closeButton />
+      <body className={inter.className}>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+          <Toaster position="top-right" richColors />
         </ThemeProvider>
       </body>
     </html>
-  )
+  );
 }
