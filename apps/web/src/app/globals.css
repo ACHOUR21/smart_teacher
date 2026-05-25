@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Cairo:wght@400;500;600;700&display=swap');
+
+@layer base {
+  :root {
+    --background: 248 250 255;
+    --foreground: 15 17 23;
+    --card: 255 255 255;
+    --card-foreground: 15 17 23;
+    --primary: 12 132 232;
+    --primary-foreground: 255 255 255;
+    --secondary: 241 245 249;
+    --secondary-foreground: 51 65 85;
+    --muted: 241 245 249;
+    --muted-foreground: 100 116 139;
+    --accent: 0 232 139;
+    --accent-foreground: 7 37 73;
+    --border: 226 232 240;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 15 17 23;
+    --foreground: 241 245 249;
+    --card: 22 27 37;
+    --card-foreground: 241 245 249;
+    --primary: 54 160 247;
+    --primary-foreground: 7 37 73;
+    --secondary: 30 41 59;
+    --secondary-foreground: 148 163 184;
+    --muted: 30 41 59;
+    --muted-foreground: 100 116 139;
+    --accent: 0 232 139;
+    --border: 30 41 59;
+  }
+
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-slate-100;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  [dir='rtl'] body {
+    font-family: 'Cairo', sans-serif;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-white/10 backdrop-blur-md border border-white/20;
+  }
+
+  .glass-dark {
+    @apply bg-black/20 backdrop-blur-md border border-white/10;
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 hover:shadow-card-hover hover:-translate-y-0.5;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary-500 to-accent-500 bg-clip-text text-transparent;
+  }
+
+  .sidebar-link {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200
+      text-slate-600 hover:text-primary-600 hover:bg-primary-50
+      dark:text-slate-400 dark:hover:text-primary-400 dark:hover:bg-primary-950/40;
+  }
+
+  .sidebar-link.active {
+    @apply text-primary-700 bg-primary-50 dark:text-primary-400 dark:bg-primary-950/60;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}
