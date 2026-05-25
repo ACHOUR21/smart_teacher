@@ -1,52 +1,48 @@
-import { Controller, Get, Post, Param, Body, Query, UseGuards, Req } from '@nestjs/common'
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger'
-import { LiveSessionsService } from './live-sessions.service'
-import { JwtAuthGuard } from '../auth/guards/jwt.guard'
-import { RolesGuard } from '../auth/guards/roles.guard'
-import { Roles } from '../auth/decorators/roles.decorator'
+import { Controller, Get, Post, Patch, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { LiveSessionsService } from './live-sessions.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 
 @ApiTags('live-sessions')
-@Controller('live-sessions')
-@UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
+@Controller('live-sessions')
 export class LiveSessionsController {
   constructor(private readonly liveSessionsService: LiveSessionsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List live sessions' })
-  findAll(@Query() query: any) {
-    return this.liveSessionsService.findAll(query)
+  findAll(
+    @Query('courseId') courseId?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.liveSessionsService.findAll({
+      courseId,
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 20,
+    });
   }
 
   @Post()
-  @UseGuards(RolesGuard)
-  @Roles('TEACHER')
-  @ApiOperation({ summary: 'Create a live session' })
-  create(@Req() req: any, @Body() body: any) {
-    return this.liveSessionsService.create(req.user.sub, body)
+  create(
+    @Request() req: { user: { sub: string } },
+    body: { courseId: string; title: string; scheduledAt?: string },
+  ) {
+    return this.liveSessionsService.create(body as never, req.user.sub);
   }
 
-  @Post(':id/start')
-  @UseGuards(RolesGuard)
-  @Roles('TEACHER')
-  @ApiOperation({ summary: 'Start a live session' })
-  start(@Param('id') id: string, @Req() req: any) {
-    return this.liveSessionsService.startSession(id, req.user.sub)
+  @Patch(':id/start')
+  start(@Param('id') id: string, @Request() req: { user: { sub: string } }) {
+    return this.liveSessionsService.startSession(id, req.user.sub);
   }
 
-  @Post(':id/end')
-  @UseGuards(RolesGuard)
-  @Roles('TEACHER')
-  @ApiOperation({ summary: 'End a live session' })
-  end(@Param('id') id: string, @Req() req: any) {
-    return this.liveSessionsService.endSession(id, req.user.sub)
+  @Patch(':id/end')
+  end(@Param('id') id: string, @Request() req: { user: { sub: string } }) {
+    return this.liveSessionsService.endSession(id, req.user.sub);
   }
 
   @Post(':id/join')
-  @UseGuards(RolesGuard)
-  @Roles('STUDENT')
-  @ApiOperation({ summary: 'Join a live session (student)' })
-  join(@Param('id') id: string, @Req() req: any) {
-    return this.liveSessionsService.joinSession(id, req.user.sub)
+  join(@Param('id') id: string, @Request() req: { user: { sub: string } }) {
+    return this.liveSessionsService.joinSession(id, req.user.sub);
   }
 }

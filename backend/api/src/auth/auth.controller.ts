@@ -1,11 +1,26 @@
-import { Controller, Post, Body, UseGuards, Get, HttpCode, HttpStatus, Req } from '@nestjs/common'
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger'
-import { AuthService } from './auth.service'
-import { RegisterDto } from './dto/register.dto'
-import { LoginDto } from './dto/login.dto'
-import { RefreshDto } from './dto/refresh.dto'
-import { JwtAuthGuard } from './guards/jwt.guard'
-import type { Request } from 'express'
+import { Controller, Post, Body, Get, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common';
+import { AuthService } from './auth.service';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { IsEmail, IsString, MinLength, IsEnum } from 'class-validator';
+
+enum Role { STUDENT = 'STUDENT', TEACHER = 'TEACHER', PARENT = 'PARENT', ADMIN = 'ADMIN' }
+
+class RegisterDto {
+  @IsString() name: string;
+  @IsEmail() email: string;
+  @MinLength(8) password: string;
+  @IsEnum(Role) role: Role;
+}
+
+class LoginDto {
+  @IsEmail() email: string;
+  @IsString() password: string;
+}
+
+class RefreshDto {
+  @IsString() refreshToken: string;
+}
 
 @ApiTags('auth')
 @Controller('auth')
@@ -13,39 +28,33 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  @ApiOperation({ summary: 'Register a new user' })
   register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto)
+    return this.authService.register(dto);
   }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Login with email and password' })
   login(@Body() dto: LoginDto) {
-    return this.authService.login(dto)
+    return this.authService.login(dto.email, dto.password);
   }
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Refresh access token' })
   refresh(@Body() dto: RefreshDto) {
-    return this.authService.refreshTokens(dto.refreshToken)
+    return this.authService.refreshTokens(dto.refreshToken);
   }
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Logout and revoke refresh token' })
   logout(@Body() dto: RefreshDto) {
-    return this.authService.logout(dto.refreshToken)
+    return this.authService.logout(dto.refreshToken);
   }
 
   @Get('me')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get current user' })
-  me(@Req() req: Request & { user: any }) {
-    return this.authService.getMe(req.user.sub)
+  @UseGuards(JwtAuthGuard)
+  getMe(@Request() req: { user: { sub: string } }) {
+    return this.authService.getMe(req.user.sub);
   }
 }
