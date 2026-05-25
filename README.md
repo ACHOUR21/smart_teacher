@@ -1,431 +1,150 @@
-You are a senior full-stack software architect and AI engineer.
-
-Build a complete enterprise-grade AI-powered educational platform with a modern SaaS architecture and production-ready codebase.
-
-The platform must be fully responsive and optimized for:
-
-- Smartphones
-- Tablets
-- Desktop devices
-
-Use a clean modern UI/UX with:
-
-- Minimalist design
-- Soft educational colors
-- Smooth animations
-- Rounded components
-- Glassmorphism effects
-- Excellent accessibility
-- Dark mode and light mode
-- RTL Arabic support
-- French and English multilingual support
-
-The design quality should be comparable to:
-
-- Notion
-- Google Classroom
-- Discord
-- Microsoft Teams
-- Duolingo
-
-==================================================
-PROJECT ARCHITECTURE
-
-Generate a scalable monorepo architecture containing:
-
-apps/
-
-- web
-- mobile
-- admin
-
-packages/
-
-- ui
-- database
-- auth
-- ai-services
-- shared-types
-- notifications
-
-backend/
-
-- api
-- websocket
-- ai-engine
-
-==================================================
-TECH STACK
-
-Frontend:
-
-- Next.js 15
-- React
-- TypeScript
-- Tailwind CSS
-- Framer Motion
-- Shadcn/ui
-
-Mobile:
-
-- Flutter or React Native
-
-Backend:
-
-- Node.js
-- NestJS
-- Express.js
-
-Database:
-
-- PostgreSQL
-- Prisma ORM
-- Redis
-- MongoDB
-
-Authentication:
-
-- JWT
-- OAuth2
-- Google Login
-- Apple Login
-- Phone Authentication
-
-Cloud & Storage:
-
-- AWS S3
-- Cloudinary
-
-Realtime:
-
-- Socket.IO
-- WebRTC
-
-AI:
-
-- OpenAI API
-- Gemini API
-- Claude API
-
-Deployment:
-
-- Docker
-- Docker Compose
-- Vercel
-- Railway
-- AWS
-
-==================================================
-MAIN USER ROLES
-
-Create 4 fully functional role-based dashboards:
-
-1. Teacher Dashboard
-2. Student Dashboard
-3. Parent Dashboard
-4. Administration Dashboard
-
-All users must authenticate from a single elegant landing page.
-
-==================================================
-AUTHENTICATION SYSTEM
-
-Build a complete authentication and authorization system:
-
-- Email login
-- Phone number login
-- Social authentication
-- Register page
-- Forgot password
-- OTP verification
-- Two-factor authentication (2FA)
-- Session management
-- Secure password hashing
-- Role-based permissions
-- Device tracking
-- Security logs
-
-==================================================
-TEACHER DASHBOARD
-
-Create a professional teacher workspace with:
-
-AI FEATURES:
-
-- AI lesson generator
-- AI summaries
-- AI mind maps
-- AI PowerPoint generation
-- AI educational videos
-- AI quiz creation
-- AI homework creation
-- AI grading assistant
-
-COURSE MANAGEMENT:
-
-- Create courses
-- Upload files
-- Organize lessons
-- Schedule classes
-- Manage students
-
-EXAMS & ASSIGNMENTS:
-
-- Quiz builder
-- Timed exams
-- Auto grading
-- Performance analytics
-- Anti-cheating system
-
-LIVE LEARNING:
-
-- Video conferencing
-- Screen sharing
-- Smart whiteboard
-- Live chat
-- Session recording
-- File sharing
-
-==================================================
-STUDENT DASHBOARD
-
-Students can:
-
-- Watch lessons
-- Join live classes
-- Download files
-- Submit homework
-- Take exams
-- View grades
-- Track progress
-- Chat with teachers
-- Use AI study assistant
-- Earn gamification rewards
-
-==================================================
-PARENT DASHBOARD
-
-Parents can:
-
-- Track attendance
-- Monitor grades
-- Receive notifications
-- Contact teachers
-- Monitor assignments
-- View schedules
-
-==================================================
-ADMIN DASHBOARD
-
-Admins can manage:
-
-- Users
-- Schools
-- Courses
-- Permissions
-- Subscriptions
-- Analytics
-- Reports
-- Security
-- Backups
-- Platform settings
-
-==================================================
-AI FEATURES
-
-Integrate advanced AI systems:
-
-- AI tutor assistant
-- Personalized learning
-- Smart recommendations
-- AI lesson generation
-- AI summaries
-- AI chatbots
-- AI translations
-- AI analytics
-- AI-generated educational media
-
-==================================================
-AUGMENTED REALITY (AR)
-
-Integrate AR educational experiences:
-
-- 3D educational models
-- Interactive science simulations
-- AR geometry visualization
-- Biology exploration
-- Camera-based object recognition
-
-Support:
-
-- ARCore
-- ARKit
-- Unity integration
-
-==================================================
-VIRTUAL REALITY (VR)
-
-Create immersive VR learning:
-
-- Virtual classrooms
-- Virtual laboratories
-- 3D educational environments
-- Immersive historical experiences
-
-Support:
-
-- WebXR
-- Oculus
-- Mobile VR
-
-==================================================
-VOICE & SPEECH AI
-
-Implement:
-
-- Voice recognition
-- Voice commands
-- AI voice assistant
-- Speech-to-text
-- Real-time subtitles
-- Audio transcription
-
-Support:
-
-- Arabic
-- French
-- English
-
-==================================================
-HANDWRITING RECOGNITION
-
-Build OCR + AI systems:
-
-- Handwriting recognition
-- Homework scanning
-- Equation detection
-- AI correction
-- Text extraction
-
-==================================================
-LIVE TRANSLATION SYSTEM
-
-Implement:
-
-- Real-time voice translation
-- Subtitle translation
-- Multi-language classrooms
-- AI translated captions
-
-==================================================
-UI/UX REQUIREMENTS
-
-Generate:
-
-- Modern dashboards
-- Elegant sidebar navigation
-- Beautiful cards
-- Interactive charts
-- Advanced tables
-- Calendar system
-- Loading skeletons
-- Empty states
-- Responsive layouts
-- Mobile-first design
-
-==================================================
-DATABASE MODELS
-
-Generate complete database schemas for:
-
-- Users
-- Teachers
-- Students
-- Parents
-- Courses
-- Lessons
-- Assignments
-- Exams
-- Notifications
-- Messages
-- LiveSessions
-- Payments
-- Analytics
-- Reports
-
-==================================================
-API REQUIREMENTS
-
-Build:
-
-- REST APIs
-- WebSocket services
-- Authentication APIs
-- AI service APIs
-- Notification APIs
-- Media upload APIs
-
-Include:
-
-- Validation
-- Error handling
-- Logging
-- Rate limiting
-- API documentation
-
-==================================================
-SECURITY REQUIREMENTS
-
-Implement:
-
-- Secure authentication
-- CSRF protection
-- XSS protection
-- SQL injection protection
-- Rate limiting
-- Secure file uploads
-- Encryption
-- Audit logs
-
-==================================================
-PERFORMANCE OPTIMIZATION
-
-Optimize for:
-
-- Fast loading
-- SEO
-- Scalability
-- Lazy loading
-- Code splitting
-- Server-side rendering
-- Progressive Web App support
-- Offline mode
-
-==================================================
-DEVOPS & DEPLOYMENT
-
-Generate:
-
-- Docker setup
-- CI/CD pipelines
-- Environment configuration
-- Production scripts
-- Deployment documentation
-
-==================================================
-FINAL OUTPUT REQUIREMENTS
-
-Generate:
-
-- Full production-ready source code
-- Clean architecture
-- Reusable components
-- Professional folder structure
-- Database migrations
-- README documentation
-- Installation guide
-- Environment variables example
-- API documentation
-- Deployment instructions
-
-The final result must feel like a premium global SaaS educational platform powered by AI, AR, VR, and immersive learning technologies.# edu
+# EduAI Platform
+
+Enterprise-grade AI-powered educational platform — monorepo built with Next.js 15, NestJS, Prisma/PostgreSQL, and Docker.
+
+## Architecture
+
+```
+edu-platform/
+├── apps/
+│   └── web/              # Next.js 15 (landing + 4 dashboards)
+├── packages/
+│   ├── database/         # Prisma ORM + PostgreSQL schema
+│   └── shared-types/     # TypeScript types shared across apps
+├── backend/
+│   └── api/              # NestJS REST API
+├── docker-compose.yml
+└── turbo.json
+```
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Web frontend | Next.js 15, React 18, TypeScript, Tailwind CSS, Framer Motion |
+| Component library | Radix UI primitives, Lucide icons, Recharts |
+| State / forms | React Hook Form + Zod |
+| Backend API | NestJS 10, Passport JWT, class-validator |
+| Database | PostgreSQL 16 + Prisma ORM |
+| Cache / Queue | Redis 7 |
+| Monorepo | Turborepo |
+| Containers | Docker + Docker Compose |
+
+## User Roles
+
+| Role | Dashboard route | Key features |
+|---|---|---|
+| Teacher | `/teacher` | AI studio, course builder, live classes, grading |
+| Student | `/student` | AI tutor, courses, progress, assignments |
+| Parent | `/parent` | Children monitoring, grades, attendance, alerts |
+| Admin | `/admin` | User management, analytics, security, settings |
+
+## Quick Start
+
+### Prerequisites
+- Node.js ≥ 20
+- Docker + Docker Compose
+
+### 1. Clone & install
+```bash
+git clone <repo>
+cd edu-platform
+cp .env.example .env   # fill in your secrets
+npm install
+```
+
+### 2. Start infrastructure
+```bash
+docker compose up postgres redis -d
+```
+
+### 3. Migrate database
+```bash
+npm run db:generate
+npm run db:push
+```
+
+### 4. Run everything
+```bash
+npm run dev
+# web  → http://localhost:3000
+# api  → http://localhost:4000
+# docs → http://localhost:4000/docs
+```
+
+### Production (Docker)
+```bash
+docker compose up --build
+```
+
+## API Endpoints
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/api/v1/auth/register` | public | Register |
+| POST | `/api/v1/auth/login` | public | Login |
+| POST | `/api/v1/auth/refresh` | public | Refresh token |
+| POST | `/api/v1/auth/logout` | JWT | Logout |
+| GET | `/api/v1/auth/me` | JWT | Get current user |
+| GET | `/api/v1/users` | ADMIN | List users |
+| GET | `/api/v1/courses` | JWT | List courses |
+| POST | `/api/v1/courses` | TEACHER | Create course |
+| GET | `/api/v1/courses/my/teacher` | TEACHER | My courses |
+| GET | `/api/v1/courses/my/student` | STUDENT | Enrolled courses |
+| POST | `/api/v1/courses/:id/enroll` | STUDENT | Enroll |
+
+Full interactive docs available at `/docs` (Swagger UI).
+
+## Database Schema
+
+The Prisma schema covers:
+- **Users** (all roles) with OAuth, 2FA, device sessions
+- **Schools / Subscriptions / Payments** (Stripe-ready)
+- **Courses / Chapters / Lessons / Resources**
+- **Assignments / Questions / Submissions** (auto-grading-ready)
+- **Live Sessions / Attendance**
+- **Conversations / Messages**
+- **Notifications**
+- **AI Sessions / Messages** (token tracking)
+- **Audit Logs**
+
+## Pages
+
+| Route | Description |
+|---|---|
+| `/` | Landing page (hero, features, AI showcase, pricing, testimonials) |
+| `/login` | Email/password + Google/Apple social login |
+| `/register` | Role-picker + signup form |
+| `/forgot-password` | Email reset flow |
+| `/teacher` | Teacher dashboard |
+| `/student` | Student dashboard |
+| `/parent` | Parent overview |
+| `/admin` | Admin dashboard |
+
+## What’s next
+
+Priority order for next sprints:
+1. **Wire auth to backend** — replace the stub `onSubmit` in login/register with real API calls
+2. **AI Tutor** — `/student/ai-tutor` chat UI connected to OpenAI/Claude via the backend `ai` module
+3. **Course builder** — `/teacher/courses/new` with chapter/lesson CRUD
+4. **Live classes** — WebRTC via Socket.IO in the backend `websocket` service
+5. **Assignments module** — complete the `AssignmentsModule` in the backend
+6. **Notifications** — real-time via Socket.IO + push via FCM
+7. **Mobile app** — Flutter or React Native consuming the same API
+
+## Environment Variables
+
+See `.env.example` for the full list. Critical ones:
+
+```
+DATABASE_URL         PostgreSQL connection string
+JWT_SECRET           Min 32 random chars
+JWT_REFRESH_SECRET   Min 32 random chars (different from above)
+NEXTAUTH_SECRET      Min 32 random chars
+OPENAI_API_KEY       For AI tutor and lesson generation
+ANTHROPIC_API_KEY    For Claude-powered features
+```
+
+## License
+
+Proprietary — your company.
