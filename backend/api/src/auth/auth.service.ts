@@ -1,125 +1,121 @@
 import {
-  Injectable, UnauthorizedException, ConflictException, BadRequestException,
-} from '@nestjs/common'
-import { JwtService } from '@nestjs/jwt'
-import { ConfigService } from '@nestjs/config'
-import * as bcrypt from 'bcryptjs'
-import { PrismaService } from '../prisma/prisma.service'
-import type { RegisterDto } from './dto/register.dto'
-import type { LoginDto } from './dto/login.dto'
-import type { Role } from '@prisma/client'
+  Injectable, ConflictException, UnauthorizedException, NotFoundException,
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../prisma/prisma.service';
+import * as bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
+
+interface RegisterDto {
+  name: string;
+  email: string;
+  password: string;
+  role: string;
+}
 
 @Injectable()
 export class AuthService {
   constructor(
-    private prisma: PrismaService,
-    private jwt: JwtService,
-    private config: ConfigService,
+    private readonly prisma: PrismaService,
+    private readonly jwt: JwtService,
+    private readonly config: ConfigService,
   ) {}
 
   async register(dto: RegisterDto) {
-    const exists = await this.prisma.user.findUnique({ where: { email: dto.email } })
-    if (exists) throw new ConflictException('Email already in use')
+    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    if (existing) throw new ConflictException('Email already registered');
 
-    const passwordHash = await bcrypt.hash(dto.password, 12)
+    const passwordHash = await bcrypt.hash(dto.password, 12);
     const user = await this.prisma.user.create({
       data: {
         name: dto.name,
-        email: dto.email.toLowerCase(),
+        email: dto.email,
         passwordHash,
-        role: dto.role as Role,
+        role: dto.role as never,
       },
-    })
+    });
 
-    await this.createRoleProfile(user.id, user.role)
-    const tokens = await this.generateTokens(user.id, user.email, user.role)
-    return { user: this.sanitizeUser(user), ...tokens }
+    await this.createRoleProfile(user.id, dto.role);
+    const tokens = await this.generateTokens(user);
+    return { ...tokens, user: this.sanitizeUser(user) };
   }
 
-  async login(dto: LoginDto) {
-    const user = await this.prisma.user.findUnique({ where: { email: dto.email.toLowerCase() } })
-    if (!user || !user.passwordHash) throw new UnauthorizedException('Invalid credentials')
+  async login(email: string, password: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) throw new UnauthorizedException('Invalid credentials');
+    if (!user.isActive) throw new UnauthorizedException('Account is suspended');
 
-    const valid = await bcrypt.compare(dto.password, user.passwordHash)
-    if (!valid) throw new UnauthorizedException('Invalid credentials')
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) throw new UnauthorizedException('Invalid credentials');
 
-    if (!user.isActive) throw new UnauthorizedException('Account is disabled')
-
-    const tokens = await this.generateTokens(user.id, user.email, user.role)
-    return { user: this.sanitizeUser(user), ...tokens }
+    const tokens = await this.generateTokens(user);
+    return { ...tokens, user: this.sanitizeUser(user) };
   }
 
   async refreshTokens(refreshToken: string) {
     const stored = await this.prisma.refreshToken.findUnique({
       where: { token: refreshToken },
       include: { user: true },
-    })
-
-    if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
-      throw new UnauthorizedException('Invalid or expired refresh token')
+    });
+    if (!stored || stored.expiresAt < new Date() || stored.revokedAt) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
     }
-
+    // Revoke old token
     await this.prisma.refreshToken.update({
       where: { id: stored.id },
       data: { revokedAt: new Date() },
-    })
-
-    return this.generateTokens(stored.user.id, stored.user.email, stored.user.role)
+    });
+    const tokens = await this.generateTokens(stored.user);
+    return { ...tokens, user: this.sanitizeUser(stored.user) };
   }
 
   async logout(refreshToken: string) {
     await this.prisma.refreshToken.updateMany({
       where: { token: refreshToken },
       data: { revokedAt: new Date() },
-    })
-    return { success: true }
+    });
+    return { success: true };
   }
 
   async getMe(userId: string) {
-    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } })
-    return this.sanitizeUser(user)
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    return this.sanitizeUser(user);
   }
 
-  private async generateTokens(userId: string, email: string, role: Role) {
-    const payload = { sub: userId, email, role }
-    const accessToken = this.jwt.sign(payload)
-    const refreshExpiresIn = this.config.get('JWT_REFRESH_EXPIRES_IN', '7d')
-
-    const refreshToken = this.jwt.sign(payload, {
-      secret: this.config.get('JWT_REFRESH_SECRET'),
-      expiresIn: refreshExpiresIn,
-    })
+  private async generateTokens(user: { id: string; email: string; role: string }) {
+    const payload = { sub: user.id, email: user.email, role: user.role };
+    const accessToken = this.jwt.sign(payload);
+    const refreshTokenValue = randomUUID();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
     await this.prisma.refreshToken.create({
-      data: {
-        token: refreshToken,
-        userId,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      },
-    })
+      data: { token: refreshTokenValue, userId: user.id, expiresAt },
+    });
 
-    return { accessToken, refreshToken, expiresIn: 900 }
+    return { accessToken, refreshToken: refreshTokenValue };
   }
 
-  private async createRoleProfile(userId: string, role: Role) {
-    switch (role) {
-      case 'TEACHER':
-        await this.prisma.teacher.create({ data: { userId } })
-        break
-      case 'STUDENT':
-        await this.prisma.student.create({ data: { userId } })
-        break
-      case 'PARENT':
-        await this.prisma.parent.create({ data: { userId } })
-        break
-      case 'ADMIN':
-        await this.prisma.admin.create({ data: { userId } })
-        break
+  private async createRoleProfile(userId: string, role: string) {
+    if (role === 'TEACHER') {
+      await this.prisma.teacher.create({ data: { userId } });
+    } else if (role === 'STUDENT') {
+      await this.prisma.student.create({ data: { userId } });
+    } else if (role === 'PARENT') {
+      await this.prisma.parent.create({ data: { userId } });
+    } else if (role === 'ADMIN') {
+      await this.prisma.admin.create({ data: { userId } });
     }
   }
 
-  private sanitizeUser(user: any) {
-    const { passwordHash, twoFactorSecret, ...safe } = user
-    return safe
+  private sanitizeUser(user: Record<string, unknown>) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { passwordHash, twoFactorSecret, ...safe } = user as {
+      passwordHash: string;
+      twoFactorSecret?: string;
+      [key: string]: unknown;
+    };
+    return safe;
   }
 }
