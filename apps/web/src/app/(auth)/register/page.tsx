@@ -41,7 +41,8 @@ export default function RegisterPage() {
     try {
       setError('');
       const user = await authRegister(data.name, data.email, data.password, role);
-      const dest = ROLE_REDIRECTS[user.role as keyof typeof ROLE_REDIRECTS] ?? '/student';
+      const roleKey = user.role.toLowerCase() as keyof typeof ROLE_REDIRECTS;
+      const dest = ROLE_REDIRECTS[roleKey] ?? '/student';
       router.push(dest);
     } catch {
       setError('Registration failed. This email may already be in use.');
@@ -55,7 +56,6 @@ export default function RegisterPage() {
         <p className="text-slate-500 dark:text-slate-400 mt-1">Join thousands of learners worldwide</p>
       </div>
 
-      {/* Role selector */}
       <div className="grid grid-cols-2 gap-3 mb-6">
         {roles.map(r => (
           <button

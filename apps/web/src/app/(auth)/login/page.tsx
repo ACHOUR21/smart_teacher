@@ -33,7 +33,8 @@ export default function LoginPage() {
     try {
       setError('');
       const user = await login(data.email, data.password);
-      const dest = ROLE_REDIRECTS[user.role as keyof typeof ROLE_REDIRECTS] ?? '/student';
+      const roleKey = user.role.toLowerCase() as keyof typeof ROLE_REDIRECTS;
+      const dest = ROLE_REDIRECTS[roleKey] ?? '/student';
       router.push(dest);
     } catch {
       setError('Invalid email or password. Please try again.');
@@ -47,7 +48,6 @@ export default function LoginPage() {
         <p className="text-slate-500 dark:text-slate-400 mt-1">Sign in to continue learning</p>
       </div>
 
-      {/* Social login */}
       <div className="flex flex-col gap-3 mb-6">
         <button className="flex items-center justify-center gap-3 w-full px-4 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
           <svg viewBox="0 0 24 24" className="h-5 w-5">
