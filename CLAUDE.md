@@ -1,139 +1,298 @@
-# EduAI Platform
-
-AI-powered educational platform with teacher, student, parent, and admin dashboards.
-
-## Monorepo Structure
-
-```
-.
-├── apps/
-│   └── web/                   # Next.js 15 frontend (port 3000)
-├── backend/
-│   └── api/                   # NestJS API (port 4000)
-├── packages/
-│   ├── database/              # Prisma schema & client
-│   ├── shared-types/          # TypeScript type definitions
-│   └── ui/                    # Shared React components
-├── docker-compose.yml
-└── turbo.json
-```
+# EduAI Platform — Developer Guide
 
 ## Quick Start
 
 ```bash
-# 1. Copy env file and fill in secrets
+# 1. Clone and install
+git clone <repo-url> && cd edu
+npm install
+
+# 2. Configure environment
 cp .env.example .env
+# Fill in DATABASE_URL, JWT_SECRET, ANTHROPIC_API_KEY (optional)
 
-# 2. Start all infrastructure (Postgres + Redis)
-docker compose up postgres redis -d
+# 3. Start infrastructure
+docker compose up -d postgres redis
 
-# 3. Generate Prisma client and push schema
+# 4. Setup database
 npm run db:generate
 npm run db:push
+npm run db:seed        # seeds demo users (password: Password123!)
 
-# 4. Start all apps in dev mode
-npm run dev
+# 5. Run dev servers
+npm run dev            # starts both api (4000) and web (3000)
 ```
 
-Frontend: http://localhost:3000  
-API: http://localhost:4000/api/v1  
-Swagger: http://localhost:4000/docs
+## Demo Accounts (after seeding)
 
-## Environment Variables
-
-See `.env.example` for the full list. Critical vars:
-
-| Variable | Description |
-|---|---|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `REDIS_URL` | Redis URL for caching |
-| `JWT_SECRET` | Secret for access tokens (min 32 chars) |
-| `JWT_REFRESH_SECRET` | Secret for refresh tokens (min 32 chars) |
-| `ANTHROPIC_API_KEY` | Claude API key for AI features |
-| `NEXTAUTH_SECRET` | Next.js auth secret |
+| Role    | Email                     | Password      |
+|---------|---------------------------|---------------|
+| Admin   | admin@eduai.com           | Password123!  |
+| Teacher | sarah.johnson@teacher.edu | Password123!  |
+| Student | amir.hassan@student.edu   | Password123!  |
+| Parent  | fatima.hassan@parent.edu  | Password123!  |
 
 ## Tech Stack
 
-### Frontend (`apps/web`)
-- **Next.js 15** with App Router
-- **Tailwind CSS** with custom design tokens
-- **Framer Motion** for animations
-- **Recharts** for data visualization
-- **Radix UI** for accessible primitives
-- **React Hook Form + Zod** for form validation
-- **socket.io-client** for real-time updates
+| Layer     | Technology                                      |
+|-----------|-------------------------------------------------|
+| Frontend  | Next.js 15, React 18, Tailwind CSS, Framer Motion |
+| UI        | Radix UI, Recharts, Lucide Icons, sonner        |
+| Forms     | React Hook Form + Zod                           |
+| Auth      | JWT (15m access + 7d refresh UUID)              |
+| Backend   | NestJS 10, Prisma ORM, PostgreSQL               |
+| AI        | Anthropic Claude (primary), OpenAI (fallback)   |
+| Realtime  | Socket.IO                                       |
+| Email     | Nodemailer (SMTP)                               |
+| Cache     | Redis                                           |
+| Deploy    | Docker Compose                                  |
 
-### Backend (`backend/api`)
-- **NestJS 10** with modular architecture
-- **Prisma ORM** with PostgreSQL
-- **Passport JWT** with refresh token rotation
-- **Socket.IO** WebSocket gateway
-- **Anthropic Claude** (claude-sonnet-4-6) + OpenAI GPT-4o as fallback
-- **Swagger/OpenAPI** auto-generated docs
+## Monorepo Structure
 
-## Dashboard Routes
+```
+/
+├── apps/
+│   └── web/                    # Next.js 15 app
+│       └── src/
+│           ├── app/
+│           │   ├── (auth)/     # login, register, forgot-password, reset-password
+│           │   ├── (dashboard)/ # role-gated dashboards
+│           │   │   ├── teacher/
+│           │   │   ├── student/
+│           │   │   ├── parent/
+│           │   │   └── admin/
+│           │   ├── onboarding/
+│           │   ├── search/     # global search
+│           │   └── page.tsx    # landing
+│           ├── components/
+│           │   ├── landing/
+│           │   ├── layout/     # sidebar, header, mobile-sidebar, notifications
+│           │   └── dashboard/
+│           └── lib/
+│               ├── api.ts          # Axios client + all API namespaces
+│               ├── auth-context.tsx # AuthProvider / useAuth
+│               ├── socket.ts        # Socket.IO client
+│               ├── use-notifications.ts # real-time notifications hook
+│               ├── constants.ts     # NAV_ITEMS, ROLE_REDIRECTS
+│               └── i18n/           # en, ar, fr translations
+├── backend/
+│   └── api/                    # NestJS app
+│       └── src/
+│           ├── auth/           # JWT, Passport, guards, decorators
+│           ├── users/
+│           ├── courses/
+│           ├── assignments/
+│           ├── live-sessions/
+│           ├── notifications/
+│           ├── ai/             # Claude/OpenAI/mock LLM service
+│           ├── email/          # Nodemailer templates
+│           ├── websocket/      # Socket.IO gateway
+│           └── prisma/
+├── packages/
+│   ├── database/
+│   │   └── prisma/
+│   │       ├── schema.prisma   # 30+ models
+│   │       └── seed.ts         # demo data
+│   └── shared-types/
+└── docker-compose.yml
+```
 
-| Role | Base Route | Key Sub-pages |
-|---|---|---|
-| Teacher | `/teacher` | courses, ai-studio, live, assignments, grades, students, messages, settings |
-| Student | `/student` | courses, ai-tutor, live, assignments, grades, progress, messages, settings |
-| Parent | `/parent` | children, attendance, grades, schedule, messages, payments, settings |
-| Admin | `/admin` | users, courses, analytics, subscriptions, reports, security, settings |
+## Route Table
 
-## API Modules
+### Auth Routes
+| Path                  | Description         |
+|-----------------------|---------------------|
+| `/login`              | Sign in             |
+| `/register`           | Create account      |
+| `/forgot-password`    | Request reset email |
+| `/reset-password`     | Set new password    |
+| `/onboarding`         | Post-register setup |
 
-| Module | Endpoints |
-|---|---|
-| Auth | `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me` |
-| Users | `GET /users/me`, `PATCH /users/me`, `GET /users` (admin) |
-| Courses | `GET /courses`, `POST /courses`, `GET /courses/:id`, `POST /courses/:id/enroll` |
-| Assignments | `GET /assignments`, `POST /assignments`, `POST /assignments/:id/submit`, `PATCH /assignments/submissions/:id/grade` |
-| Live Sessions | `GET /live-sessions`, `POST /live-sessions`, `PATCH /live-sessions/:id/start`, `POST /live-sessions/:id/join` |
-| AI | `POST /ai/sessions`, `POST /ai/sessions/:id/chat`, `POST /ai/generate/lesson` |
-| Notifications | `GET /notifications`, `GET /notifications/unread-count`, `PATCH /notifications/read-all` |
+### Teacher Routes
+| Path                              | Description              |
+|-----------------------------------|--------------------------|
+| `/teacher`                        | Dashboard overview       |
+| `/teacher/courses`                | Course list              |
+| `/teacher/courses/new`            | 4-step course wizard     |
+| `/teacher/courses/[id]`           | Course editor (chapters) |
+| `/teacher/assignments`            | Assignment list          |
+| `/teacher/assignments/[id]`       | Grade submissions        |
+| `/teacher/students`               | Student roster           |
+| `/teacher/students/[id]`          | Student analytics detail |
+| `/teacher/grades`                 | Grade book               |
+| `/teacher/live`                   | Live sessions            |
+| `/teacher/ai-studio`              | AI content generator     |
+| `/teacher/messages`               | Messaging                |
+| `/teacher/settings`               | Settings                 |
+
+### Student Routes
+| Path                              | Description              |
+|-----------------------------------|--------------------------|
+| `/student`                        | Dashboard overview       |
+| `/student/courses`                | Browse & enrolled        |
+| `/student/courses/[id]`           | Course viewer            |
+| `/student/assignments`            | Assignment list          |
+| `/student/assignments/[id]`       | Take assignment          |
+| `/student/ai-tutor`               | AI chat tutor            |
+| `/student/progress`               | Progress analytics       |
+| `/student/grades`                 | Grade book               |
+| `/student/live`                   | Live sessions            |
+| `/student/messages`               | Messaging                |
+| `/student/profile/[id]`           | Public profile           |
+| `/student/settings`               | Settings                 |
+
+### Parent Routes
+| Path                              | Description              |
+|-----------------------------------|--------------------------|
+| `/parent`                         | Dashboard overview       |
+| `/parent/children`                | Children overview        |
+| `/parent/children/add`            | Link a child account     |
+| `/parent/grades`                  | Children's grades        |
+| `/parent/attendance`              | Attendance records       |
+| `/parent/schedule`                | Weekly schedule          |
+| `/parent/payments`                | Subscription & invoices  |
+| `/parent/messages`                | Message teachers         |
+| `/parent/settings`                | Settings                 |
+
+### Admin Routes
+| Path                              | Description              |
+|-----------------------------------|--------------------------|
+| `/admin`                          | Dashboard overview       |
+| `/admin/users`                    | User management          |
+| `/admin/users/[id]`               | User detail & edit       |
+| `/admin/courses`                  | Course management        |
+| `/admin/content`                  | Content moderation       |
+| `/admin/analytics`                | Platform analytics       |
+| `/admin/subscriptions`            | Subscription management  |
+| `/admin/reports`                  | Reports                  |
+| `/admin/security`                 | Security & audit log     |
+| `/admin/settings`                 | Platform settings        |
+
+### Shared
+| Path         | Description           |
+|--------------|-----------------------|
+| `/search`    | Global search         |
+| `/`          | Landing page          |
+
+## API Endpoints
+
+```
+POST   /api/v1/auth/register
+POST   /api/v1/auth/login
+POST   /api/v1/auth/refresh
+POST   /api/v1/auth/logout
+GET    /api/v1/auth/me
+POST   /api/v1/auth/forgot-password
+POST   /api/v1/auth/reset-password
+
+GET    /api/v1/users
+GET    /api/v1/users/:id
+PATCH  /api/v1/users/:id
+PATCH  /api/v1/users/:id/status
+GET    /api/v1/users/stats
+
+GET    /api/v1/courses
+GET    /api/v1/courses/:id
+POST   /api/v1/courses
+PATCH  /api/v1/courses/:id
+POST   /api/v1/courses/:id/enroll
+GET    /api/v1/courses/my-enrollments
+GET    /api/v1/courses/my-courses
+
+GET    /api/v1/assignments
+GET    /api/v1/assignments/:id
+POST   /api/v1/assignments
+POST   /api/v1/assignments/:id/submit
+GET    /api/v1/assignments/:id/submissions
+PATCH  /api/v1/assignments/:id/submissions/:sid/grade
+GET    /api/v1/assignments/my-assignments
+
+GET    /api/v1/live-sessions
+GET    /api/v1/live-sessions/:id
+POST   /api/v1/live-sessions
+PATCH  /api/v1/live-sessions/:id/start
+PATCH  /api/v1/live-sessions/:id/end
+POST   /api/v1/live-sessions/:id/join
+
+GET    /api/v1/notifications
+GET    /api/v1/notifications/unread-count
+PATCH  /api/v1/notifications/:id/read
+PATCH  /api/v1/notifications/mark-all-read
+POST   /api/v1/notifications
+
+POST   /api/v1/ai/sessions
+GET    /api/v1/ai/sessions
+GET    /api/v1/ai/sessions/:id
+POST   /api/v1/ai/sessions/:id/chat
+POST   /api/v1/ai/generate/lesson
+POST   /api/v1/ai/generate/quiz
+POST   /api/v1/ai/generate/summary
+POST   /api/v1/ai/generate/mindmap
+
+GET    /health
+GET    /docs   (Swagger UI)
+```
 
 ## WebSocket Events
 
-Namespace: `/realtime`
+Connect to `ws://localhost:4000/realtime` with `?token=<accessToken>`.
 
-| Event | Direction | Payload |
-|---|---|---|
-| `join-session` | Client → Server | `{ sessionId }` |
-| `leave-session` | Client → Server | `{ sessionId }` |
-| `chat-message` | Client → Server | `{ sessionId, message }` |
-| `raise-hand` | Client → Server | `{ sessionId }` |
-| `notification` | Server → Client | `{ type, title, body }` |
+| Event (client → server) | Payload                       |
+|-------------------------|-------------------------------|
+| `join-session`          | `{ sessionId }`               |
+| `leave-session`         | `{ sessionId }`               |
+| `chat-message`          | `{ sessionId, content }`      |
+| `raise-hand`            | `{ sessionId }`               |
 
-## Docker (Production)
+| Event (server → client) | Payload                       |
+|-------------------------|-------------------------------|
+| `notification`          | Notification object           |
+| `chat-message`          | `{ userId, content, at }`     |
+| `hand-raised`           | `{ userId, sessionId }`       |
+| `session-started`       | `{ sessionId }`               |
+| `session-ended`         | `{ sessionId }`               |
 
-```bash
-docker compose up --build
+## Environment Variables
+
+```env
+# Database
+DATABASE_URL=postgresql://edu:edu@localhost:5432/eduai
+REDIS_URL=redis://localhost:6379
+
+# Auth
+JWT_SECRET=your-secret-here
+JWT_REFRESH_SECRET=another-secret-here
+
+# AI (optional — falls back to mock)
+ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
+
+# Email (optional — logs only if not set)
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=user@example.com
+SMTP_PASS=password
+SMTP_FROM="EduAI" <no-reply@eduai.com>
+
+# App
+APP_URL=http://localhost:3000
+NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1
+NEXT_PUBLIC_WS_URL=ws://localhost:4000
+NEXTAUTH_SECRET=your-nextauth-secret
 ```
 
-All services: PostgreSQL, Redis, NestJS API, Next.js Web.
+## i18n
 
-## Database
+Translations live in `apps/web/src/lib/i18n/{en,ar,fr}.ts`.
+Arabic (`ar`) is RTL — the `getDir()` helper returns `'rtl'`.
+Locale switching is wired through `<html lang dir>` in the root layout.
 
-```bash
-# Run migrations
-npx prisma migrate dev --name <description>
-
-# Open Prisma Studio
-npx prisma studio
-
-# Seed (if seed script added)
-npx prisma db seed
-```
-
-## Testing
+## Prisma Commands
 
 ```bash
-# Frontend type check
-cd apps/web && npx tsc --noEmit
-
-# Backend unit tests
-cd backend/api && npm test
-
-# Backend e2e
-cd backend/api && npm run test:e2e
+npm run db:generate   # generates Prisma client
+npm run db:push       # pushes schema to DB (dev)
+npm run db:migrate    # creates migration file (prod)
+npm run db:seed       # seeds demo data
+npm run db:studio     # opens Prisma Studio at :5555
 ```
