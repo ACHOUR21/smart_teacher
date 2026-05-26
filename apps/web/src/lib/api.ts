@@ -1,14 +1,11 @@
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
 
-const api = axios.create({
-  baseURL: API_URL,
-  headers: { 'Content-Type': 'application/json' },
-});
+const api = axios.create({ baseURL: API_BASE });
 
-// Attach access token from localStorage
-api.interceptors.request.use(config => {
+// Attach token from localStorage
+api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('accessToken');
     if (token) config.headers.Authorization = `Bearer ${token}`;
@@ -16,38 +13,42 @@ api.interceptors.request.use(config => {
   return config;
 });
 
-// Track in-progress refresh to prevent race conditions
+// Handle 401: attempt refresh, queue concurrent requests
 let isRefreshing = false;
-let refreshQueue: Array<(token: string) => void> = [];
+let refreshQueue: ((token: string) => void)[] = [];
 
 api.interceptors.response.use(
-  res => res,
-  async error => {
+  (res) => res,
+  async (error) => {
     const original = error.config;
     if (error.response?.status === 401 && !original._retry) {
       original._retry = true;
       if (isRefreshing) {
-        return new Promise(resolve => {
-          refreshQueue.push(token => {
+        return new Promise((resolve) => {
+          refreshQueue.push((token) => {
             original.headers.Authorization = `Bearer ${token}`;
             resolve(api(original));
           });
         });
       }
+
       isRefreshing = true;
       try {
         const refreshToken = localStorage.getItem('refreshToken');
-        const { data } = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
-        localStorage.setItem('accessToken', data.accessToken);
-        localStorage.setItem('refreshToken', data.refreshToken);
-        refreshQueue.forEach(cb => cb(data.accessToken));
+        if (!refreshToken) throw new Error('No refresh token');
+        const { data } = await axios.post(`${API_BASE}/auth/refresh`, { refreshToken });
+        const newToken = data.accessToken;
+        localStorage.setItem('accessToken', newToken);
+        if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+        refreshQueue.forEach((cb) => cb(newToken));
         refreshQueue = [];
-        original.headers.Authorization = `Bearer ${data.accessToken}`;
+        original.headers.Authorization = `Bearer ${newToken}`;
         return api(original);
       } catch {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
-        window.location.href = '/login';
+        if (typeof window !== 'undefined') window.location.href = '/login';
+        return Promise.reject(error);
       } finally {
         isRefreshing = false;
       }
@@ -59,73 +60,71 @@ api.interceptors.response.use(
 export default api;
 
 export const authApi = {
-  register: (dto: { name: string; email: string; password: string; role: string }) =>
-    api.post('/auth/register', dto),
-  login: (dto: { email: string; password: string }) =>
-    api.post('/auth/login', dto),
-  logout: (dto: { refreshToken: string }) =>
-    api.post('/auth/logout', dto),
-  refresh: (dto: { refreshToken: string }) =>
-    api.post('/auth/refresh', dto),
-  getMe: () =>
-    api.get('/auth/me'),
+  register: (data: any) => api.post('/auth/register', data),
+  login: (data: any) => api.post('/auth/login', data),
+  refresh: (refreshToken: string) => api.post('/auth/refresh', { refreshToken }),
+  logout: () => api.post('/auth/logout'),
+  me: () => api.get('/auth/me'),
+  forgotPassword: (email: string) => api.post('/auth/forgot-password', { email }),
+  resetPassword: (data: { token: string; newPassword: string }) =>
+    api.post('/auth/reset-password', data),
 };
 
 export const coursesApi = {
-  list: (params?: Record<string, unknown>) => api.get('/courses', { params }),
-  get: (id: string) => api.get(`/courses/${id}`),
-  create: (dto: Record<string, unknown>) => api.post('/courses', dto),
-  update: (id: string, dto: Record<string, unknown>) => api.patch(`/courses/${id}`, dto),
+  getAll: (params?: any) => api.get('/courses', { params }),
+  getOne: (id: string) => api.get(`/courses/${id}`),
+  create: (data: any) => api.post('/courses', data),
+  update: (id: string, data: any) => api.patch(`/courses/${id}`, data),
   enroll: (id: string) => api.post(`/courses/${id}/enroll`),
-  myEnrollments: () => api.get('/courses/my-enrollments'),
-  myCourses: () => api.get('/courses/my-courses'),
+  getMyEnrollments: () => api.get('/courses/my-enrollments'),
+  getMyTeacherCourses: () => api.get('/courses/my-courses'),
 };
 
 export const usersApi = {
-  me: () => api.get('/users/me'),
-  updateProfile: (dto: Record<string, unknown>) => api.patch('/users/me', dto),
-  myStats: () => api.get('/users/me/stats'),
-  list: (params?: Record<string, unknown>) => api.get('/users', { params }),
-  get: (id: string) => api.get(`/users/${id}`),
-  setStatus: (id: string, isActive: boolean) => api.patch(`/users/${id}/status`, { isActive }),
-};
-
-export const aiApi = {
-  createSession: (dto: { title?: string; courseId?: string }) =>
-    api.post('/ai/sessions', dto),
-  getSessions: () => api.get('/ai/sessions'),
-  getSession: (id: string) => api.get(`/ai/sessions/${id}`),
-  chat: (id: string, dto: { message: string }) =>
-    api.post(`/ai/sessions/${id}/chat`, dto),
-  generateLesson: (dto: Record<string, unknown>) => api.post('/ai/generate/lesson', dto),
-  generateQuiz: (dto: Record<string, unknown>) => api.post('/ai/generate/quiz', dto),
-  generateSummary: (content: string) => api.post('/ai/generate/summary', { content }),
-  generateMindMap: (topic: string) => api.post('/ai/generate/mindmap', { topic }),
+  getAll: (params?: any) => api.get('/users', { params }),
+  getOne: (id: string) => api.get(`/users/${id}`),
+  update: (id: string, data: any) => api.patch(`/users/${id}`, data),
+  setActive: (id: string, isActive: boolean) =>
+    api.patch(`/users/${id}/status`, { isActive }),
+  getStats: () => api.get('/users/stats'),
 };
 
 export const assignmentsApi = {
-  list: (params?: Record<string, unknown>) => api.get('/assignments', { params }),
-  mine: () => api.get('/assignments/mine'),
-  get: (id: string) => api.get(`/assignments/${id}`),
-  create: (dto: Record<string, unknown>) => api.post('/assignments', dto),
-  submit: (id: string, answers: Record<string, string>) =>
-    api.post(`/assignments/${id}/submit`, { answers }),
+  getAll: (params?: any) => api.get('/assignments', { params }),
+  getOne: (id: string) => api.get(`/assignments/${id}`),
+  create: (data: any) => api.post('/assignments', data),
+  submit: (id: string, data: any) => api.post(`/assignments/${id}/submit`, data),
   getSubmissions: (id: string) => api.get(`/assignments/${id}/submissions`),
-  gradeSubmission: (submId: string, score: number, feedback?: string) =>
-    api.patch(`/assignments/submissions/${submId}/grade`, { score, feedback }),
+  gradeSubmission: (assignmentId: string, submissionId: string, data: any) =>
+    api.patch(`/assignments/${assignmentId}/submissions/${submissionId}/grade`, data),
+  getMyAssignments: () => api.get('/assignments/my-assignments'),
 };
 
 export const liveApi = {
-  list: (params?: Record<string, unknown>) => api.get('/live-sessions', { params }),
-  create: (dto: Record<string, unknown>) => api.post('/live-sessions', dto),
+  getSessions: (params?: any) => api.get('/live-sessions', { params }),
+  getOne: (id: string) => api.get(`/live-sessions/${id}`),
+  create: (data: any) => api.post('/live-sessions', data),
   start: (id: string) => api.patch(`/live-sessions/${id}/start`),
   end: (id: string) => api.patch(`/live-sessions/${id}/end`),
   join: (id: string) => api.post(`/live-sessions/${id}/join`),
 };
 
 export const notificationsApi = {
-  list: (params?: Record<string, unknown>) => api.get('/notifications', { params }),
-  unreadCount: () => api.get('/notifications/unread-count'),
+  getAll: (params?: any) => api.get('/notifications', { params }),
+  getUnreadCount: () => api.get('/notifications/unread-count'),
   markRead: (id: string) => api.patch(`/notifications/${id}/read`),
-  markAllRead: () => api.patch('/notifications/read-all'),
+  markAllRead: () => api.patch('/notifications/mark-all-read'),
+  create: (data: any) => api.post('/notifications', data),
+};
+
+export const aiApi = {
+  createSession: (data: any) => api.post('/ai/sessions', data),
+  getSessions: () => api.get('/ai/sessions'),
+  getSession: (id: string) => api.get(`/ai/sessions/${id}`),
+  chat: (id: string, message: string) =>
+    api.post(`/ai/sessions/${id}/chat`, { message }),
+  generateLesson: (data: any) => api.post('/ai/generate/lesson', data),
+  generateQuiz: (data: any) => api.post('/ai/generate/quiz', data),
+  generateSummary: (data: any) => api.post('/ai/generate/summary', data),
+  generateMindMap: (data: any) => api.post('/ai/generate/mindmap', data),
 };
