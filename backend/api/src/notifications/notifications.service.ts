@@ -1,22 +1,28 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { NotificationType } from '@prisma/client';
 
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) {}
 
-  async getForUser(userId: string, page = 1, limit = 20) {
-    const [total, notifications] = await this.prisma.$transaction([
-      this.prisma.notification.count({ where: { userId } }),
+  async getForUser(userId: string, params?: { limit?: number; offset?: number }) {
+    const [data, total] = await Promise.all([
       this.prisma.notification.findMany({
         where: { userId },
         orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
+        take: params?.limit ?? 20,
+        skip: params?.offset ?? 0,
       }),
+      this.prisma.notification.count({ where: { userId } }),
     ]);
-    return { data: notifications, total, page, limit };
+    return { data, total, limit: params?.limit ?? 20, offset: params?.offset ?? 0 };
+  }
+
+  async getUnreadCount(userId: string) {
+    const count = await this.prisma.notification.count({
+      where: { userId, isRead: false },
+    });
+    return { count };
   }
 
   async markRead(id: string, userId: string) {
@@ -33,18 +39,25 @@ export class NotificationsService {
     });
   }
 
-  async create(dto: {
+  async create(data: {
     userId: string;
-    type: NotificationType;
     title: string;
     body: string;
-    link?: string;
+    type: string;
+    data?: Record<string, unknown>;
   }) {
-    return this.prisma.notification.create({ data: dto });
+    return this.prisma.notification.create({
+      data: {
+        userId: data.userId,
+        title: data.title,
+        body: data.body,
+        type: data.type,
+        data: data.data ?? {},
+      },
+    });
   }
 
-  async getUnreadCount(userId: string) {
-    const count = await this.prisma.notification.count({ where: { userId, isRead: false } });
-    return { count };
+  async delete(id: string, userId: string) {
+    return this.prisma.notification.deleteMany({ where: { id, userId } });
   }
 }

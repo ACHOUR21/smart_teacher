@@ -1,106 +1,79 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) {}
 
-  async findAll({
-    page = 1,
-    limit = 20,
-    role,
-    search,
-  }: {
-    page?: number;
-    limit?: number;
-    role?: Role;
-    search?: string;
-  }) {
-    const where: Record<string, unknown> = {};
-    if (role) where.role = role;
-    if (search) {
+  async findAll(params: { role?: string; search?: string; limit?: number; offset?: number }) {
+    const where: any = {};
+    if (params.role) where.role = params.role.toUpperCase();
+    if (params.search) {
       where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
+        { firstName: { contains: params.search, mode: 'insensitive' } },
+        { lastName: { contains: params.search, mode: 'insensitive' } },
+        { email: { contains: params.search, mode: 'insensitive' } },
       ];
     }
 
-    const [total, users] = await this.prisma.$transaction([
-      this.prisma.user.count({ where }),
+    const [data, total] = await Promise.all([
       this.prisma.user.findMany({
         where,
-        skip: (page - 1) * limit,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
         select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-          isActive: true,
-          createdAt: true,
-          updatedAt: true,
+          id: true, email: true, firstName: true, lastName: true,
+          role: true, isActive: true, createdAt: true, avatarUrl: true,
         },
+        take: params.limit ?? 20,
+        skip: params.offset ?? 0,
+        orderBy: { createdAt: 'desc' },
       }),
+      this.prisma.user.count({ where }),
     ]);
 
-    return { data: users, total, page, limit, totalPages: Math.ceil(total / limit) };
+    return { data, total, limit: params.limit ?? 20, offset: params.offset ?? 0 };
   }
 
   async findOne(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
       select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
-        teacher: true,
-        student: true,
-        parent: true,
+        id: true, email: true, firstName: true, lastName: true,
+        role: true, isActive: true, createdAt: true, avatarUrl: true,
       },
     });
     if (!user) throw new NotFoundException('User not found');
     return user;
   }
 
-  async updateProfile(id: string, dto: { name?: string; avatarUrl?: string }) {
+  async update(id: string, data: { firstName?: string; lastName?: string; avatarUrl?: string }) {
     return this.prisma.user.update({
       where: { id },
-      data: dto,
-      select: { id: true, name: true, email: true, role: true },
+      data,
+      select: {
+        id: true, email: true, firstName: true, lastName: true,
+        role: true, isActive: true, createdAt: true, avatarUrl: true,
+      },
     });
   }
 
-  async setActive(id: string, isActive: boolean, requesterId: string) {
-    if (id === requesterId) throw new ForbiddenException('Cannot change your own status');
+  async setActive(id: string, isActive: boolean) {
     return this.prisma.user.update({
       where: { id },
       data: { isActive },
-      select: { id: true, name: true, email: true, isActive: true },
+      select: { id: true, isActive: true },
     });
   }
 
-  async getStats(userId: string, role: Role) {
-    if (role === 'TEACHER') {
-      const teacher = await this.prisma.teacher.findUnique({ where: { userId } });
-      if (!teacher) return {};
-      const [courseCount, studentCount] = await Promise.all([
-        this.prisma.course.count({ where: { teacherId: teacher.id } }),
-        this.prisma.enrollment.count({ where: { course: { teacherId: teacher.id } } }),
-      ]);
-      return { courseCount, studentCount };
-    }
-    if (role === 'STUDENT') {
-      const student = await this.prisma.student.findUnique({ where: { userId } });
-      if (!student) return {};
-      const enrollments = await this.prisma.enrollment.count({ where: { studentId: student.id } });
-      return { enrollments };
-    }
-    return {};
+  async getStats() {
+    const [total, students, teachers, parents, activeToday] = await Promise.all([
+      this.prisma.user.count(),
+      this.prisma.user.count({ where: { role: 'STUDENT' } }),
+      this.prisma.user.count({ where: { role: 'TEACHER' } }),
+      this.prisma.user.count({ where: { role: 'PARENT' } }),
+      this.prisma.user.count({
+        where: { updatedAt: { gte: new Date(Date.now() - 86400000) } },
+      }),
+    ]);
+    return { total, students, teachers, parents, activeToday };
   }
 }

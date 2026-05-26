@@ -1,70 +1,57 @@
 import {
-  Controller, Get, Patch, Param, Body, Query,
-  UseGuards, Request, ParseBoolPipe,
+  Controller, Get, Patch, Param, Query, Body,
+  UseGuards
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 
 @ApiTags('users')
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @Controller('users')
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
-
-  @Get('me')
-  getMe(@Request() req: { user: { sub: string; role: string } }) {
-    return this.usersService.findOne(req.user.sub);
-  }
-
-  @Patch('me')
-  updateProfile(
-    @Request() req: { user: { sub: string } },
-    @Body() body: { name?: string; avatarUrl?: string },
-  ) {
-    return this.usersService.updateProfile(req.user.sub, body);
-  }
-
-  @Get('me/stats')
-  getMyStats(@Request() req: { user: { sub: string; role: string } }) {
-    return this.usersService.getStats(req.user.sub, req.user.role as never);
-  }
+  constructor(private readonly svc: UsersService) {}
 
   @Get()
   @UseGuards(RolesGuard)
-  @Roles('ADMIN')
+  @Roles('ADMIN', 'TEACHER')
   findAll(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
     @Query('role') role?: string,
     @Query('search') search?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
   ) {
-    return this.usersService.findAll({
-      page: page ? Number(page) : 1,
-      limit: limit ? Number(limit) : 20,
-      role: role as never,
-      search,
-    });
+    return this.svc.findAll({ role, search, limit: limit ? +limit : 20, offset: offset ? +offset : 0 });
+  }
+
+  @Get('stats')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  getStats() {
+    return this.svc.getStats();
   }
 
   @Get(':id')
-  @UseGuards(RolesGuard)
-  @Roles('ADMIN')
   findOne(@Param('id') id: string) {
-    return this.usersService.findOne(id);
+    return this.svc.findOne(id);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() body: any, @CurrentUser() user: any) {
+    if (user.role !== 'ADMIN' && user.id !== id) {
+      return { error: 'Forbidden' };
+    }
+    return this.svc.update(id, body);
   }
 
   @Patch(':id/status')
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
-  setStatus(
-    @Param('id') id: string,
-    @Body('isActive', ParseBoolPipe) isActive: boolean,
-    @Request() req: { user: { sub: string } },
-  ) {
-    return this.usersService.setActive(id, isActive, req.user.sub);
+  setActive(@Param('id') id: string, @Body('isActive') isActive: boolean) {
+    return this.svc.setActive(id, isActive);
   }
 }
