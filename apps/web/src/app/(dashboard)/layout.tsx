@@ -1,36 +1,22 @@
-'use client'
-
-import { useState } from 'react'
-import { usePathname } from 'next/navigation'
-import { Sidebar } from '@/components/layout/sidebar'
-import type { Role } from '@/lib/constants'
-
-function getRoleFromPath(pathname: string): Role {
-  if (pathname.startsWith('/teacher')) return 'teacher'
-  if (pathname.startsWith('/student')) return 'student'
-  if (pathname.startsWith('/parent')) return 'parent'
-  if (pathname.startsWith('/admin')) return 'admin'
-  return 'student'
-}
-
-const MOCK_USER = { name: 'Alex Johnson', email: 'alex@school.edu' }
+import { Sidebar } from '@/components/layout/sidebar';
+import { Header } from '@/components/layout/header';
+import { MobileSidebar } from '@/components/layout/mobile-sidebar';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname()
-  const [collapsed, setCollapsed] = useState(false)
-  const role = getRoleFromPath(pathname)
-
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden">
-      <Sidebar
-        role={role}
-        user={MOCK_USER}
-        collapsed={collapsed}
-        onToggle={() => setCollapsed(!collapsed)}
-      />
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {children}
-      </main>
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-950 overflow-hidden">
+      {/* Desktop sidebar */}
+      <div className="hidden lg:flex">
+        <Sidebar />
+      </div>
+
+      {/* Main content */}
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+        <Header mobileSidebar={<MobileSidebar />} />
+        <main className="flex-1 overflow-y-auto">
+          {children}
+        </main>
+      </div>
     </div>
-  )
+  );
 }
