@@ -1,62 +1,92 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
-import { PrismaService } from '../prisma/prisma.service'
-import { randomUUID } from 'crypto'
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class LiveSessionsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(query: { courseId?: string; status?: string }) {
-    return this.prisma.liveSession.findMany({
-      where: {
-        ...(query.courseId && { courseId: query.courseId }),
-        ...(query.status && { status: query.status as any }),
-      },
-      orderBy: { scheduledAt: 'asc' },
-      include: {
-        teacher: { include: { user: { select: { name: true, avatar: true } } } },
-        course: { select: { title: true } },
-        _count: { select: { attendances: true } },
-      },
-    })
+  async findAll(params: {
+    courseId?: string;
+    teacherId?: string;
+    status?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    const { courseId, teacherId, status, limit = 20, offset = 0 } = params;
+    const where: any = {};
+    if (courseId) where.courseId = courseId;
+    if (teacherId) where.teacherId = teacherId;
+    if (status) where.status = status;
+
+    const [data, total] = await Promise.all([
+      this.prisma.liveSession.findMany({
+        where,
+        include: {
+          course: true,
+          teacher: { include: { user: { select: { firstName: true, lastName: true, email: true } } } },
+        },
+        take: limit,
+        skip: offset,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.liveSession.count({ where }),
+    ]);
+    return { data, total, limit, offset };
   }
 
-  async create(teacherUserId: string, data: { courseId: string; title: string; scheduledAt: Date }) {
-    const teacher = await this.prisma.teacher.findUniqueOrThrow({ where: { userId: teacherUserId } })
+  async findOne(id: string) {
+    const session = await this.prisma.liveSession.findUnique({
+      where: { id },
+      include: {
+        course: true,
+        teacher: { include: { user: { select: { firstName: true, lastName: true, email: true } } } },
+        attendances: true,
+      },
+    });
+    if (!session) throw new NotFoundException(`Live session ${id} not found`);
+    return session;
+  }
+
+  async create(dto: { title: string; courseId: string; scheduledAt?: Date }, teacherId: string) {
     return this.prisma.liveSession.create({
       data: {
-        courseId: data.courseId,
-        teacherId: teacher.id,
-        title: data.title,
-        scheduledAt: new Date(data.scheduledAt),
+        title: dto.title,
+        courseId: dto.courseId,
+        teacherId,
         roomId: randomUUID(),
+        status: 'SCHEDULED',
+        startedAt: dto.scheduledAt ?? null,
       },
-    })
+      include: {
+        course: true,
+        teacher: { include: { user: { select: { firstName: true, lastName: true } } } },
+      },
+    });
   }
 
-  async startSession(id: string, teacherUserId: string) {
-    const session = await this.prisma.liveSession.findUniqueOrThrow({ where: { id }, include: { teacher: true } })
-    if (session.teacher.userId !== teacherUserId) throw new ForbiddenException()
-    return this.prisma.liveSession.update({ where: { id }, data: { status: 'LIVE' } })
+  async startSession(id: string, teacherId: string) {
+    const session = await this.prisma.liveSession.findFirst({ where: { id, teacherId } });
+    if (!session) throw new NotFoundException(`Session ${id} not found or unauthorized`);
+    return this.prisma.liveSession.update({ where: { id }, data: { status: 'LIVE', startedAt: new Date() } });
   }
 
-  async endSession(id: string, teacherUserId: string) {
-    const session = await this.prisma.liveSession.findUniqueOrThrow({ where: { id }, include: { teacher: true } })
-    if (session.teacher.userId !== teacherUserId) throw new ForbiddenException()
-    return this.prisma.liveSession.update({ where: { id }, data: { status: 'ENDED', endedAt: new Date() } })
+  async endSession(id: string, teacherId: string) {
+    const session = await this.prisma.liveSession.findFirst({ where: { id, teacherId } });
+    if (!session) throw new NotFoundException(`Session ${id} not found or unauthorized`);
+    return this.prisma.liveSession.update({ where: { id }, data: { status: 'ENDED', endedAt: new Date() } });
   }
 
-  async joinSession(id: string, studentUserId: string) {
-    const student = await this.prisma.student.findUniqueOrThrow({ where: { userId: studentUserId } })
-    const session = await this.prisma.liveSession.findUniqueOrThrow({ where: { id } })
-    if (session.status !== 'LIVE') throw new ForbiddenException('Session is not live')
+  async joinSession(id: string, studentId: string) {
+    const session = await this.prisma.liveSession.findUnique({ where: { id } });
+    if (!session) throw new NotFoundException(`Session ${id} not found`);
 
-    await this.prisma.attendance.upsert({
-      where: { studentId_liveSessionId: { studentId: student.id, liveSessionId: id } },
-      create: { studentId: student.id, liveSessionId: id, status: 'PRESENT', joinedAt: new Date() },
-      update: { joinedAt: new Date() },
-    })
+    const attendance = await this.prisma.attendance.upsert({
+      where: { sessionId_studentId: { sessionId: id, studentId } },
+      update: { joinedAt: new Date(), leftAt: null },
+      create: { sessionId: id, studentId, joinedAt: new Date() },
+    });
 
-    return { roomId: session.roomId, sessionId: id }
+    return { session, attendance };
   }
 }
