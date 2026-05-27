@@ -1,192 +1,146 @@
-// ─── Auth ─────────────────────────────────────────────────────────────────────
-
-export type Role = 'STUDENT' | 'TEACHER' | 'PARENT' | 'ADMIN'
-
+// Auth
 export interface JwtPayload {
-  sub: string
-  email: string
-  role: Role
-  schoolId?: string
-  iat?: number
-  exp?: number
+  sub: string;
+  email: string;
+  role: string;
+  iat: number;
+  exp: number;
 }
 
 export interface AuthTokens {
-  accessToken: string
-  refreshToken: string
-  expiresIn: number
+  accessToken: string;
+  refreshToken: string;
 }
 
-// ─── User ─────────────────────────────────────────────────────────────────────
-
+// User
 export interface UserDTO {
-  id: string
-  email: string
-  name: string
-  avatar?: string
-  role: Role
-  locale: string
-  timezone: string
-  isActive: boolean
-  createdAt: string
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  avatarUrl?: string;
+  isActive: boolean;
+  createdAt: string;
 }
 
-// ─── Course ───────────────────────────────────────────────────────────────────
-
-export type CourseStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
-
+// Course
 export interface CourseDTO {
-  id: string
-  title: string
-  description?: string
-  thumbnail?: string
-  status: CourseStatus
-  subject?: string
-  grade?: string
-  language: string
-  teacherName: string
-  enrollmentCount: number
-  createdAt: string
-  updatedAt: string
+  id: string;
+  title: string;
+  description: string;
+  thumbnailUrl?: string;
+  category?: string;
+  difficulty?: string;
+  isPublished: boolean;
+  teacher?: { id: string; user: { firstName: string; lastName: string } };
+  enrolledCount?: number;
+  chapters?: ChapterDTO[];
 }
 
-// ─── Assignment ───────────────────────────────────────────────────────────────
+export interface ChapterDTO {
+  id: string;
+  title: string;
+  order: number;
+  lessons?: LessonDTO[];
+}
 
-export type AssignmentType = 'homework' | 'quiz' | 'exam' | 'project'
-export type AssignmentStatus = 'DRAFT' | 'PUBLISHED' | 'CLOSED'
-export type SubmissionStatus = 'SUBMITTED' | 'GRADED' | 'LATE' | 'RESUBMIT'
+export interface LessonDTO {
+  id: string;
+  title: string;
+  type: string;
+  durationMins?: number;
+  order: number;
+  isCompleted?: boolean;
+}
 
+// Assignments
 export interface AssignmentDTO {
-  id: string
-  title: string
-  description?: string
-  type: AssignmentType
-  maxScore: number
-  dueAt?: string
-  status: AssignmentStatus
-  submissionCount: number
-  totalStudents: number
-  courseTitle: string
+  id: string;
+  title: string;
+  description: string;
+  dueDate?: string;
+  totalPoints: number;
+  courseId: string;
+  course?: { title: string };
+  submissionsCount?: number;
 }
 
 export interface SubmissionDTO {
-  id: string
-  studentName: string
-  studentAvatar?: string
-  status: SubmissionStatus
-  score?: number
-  submittedAt: string
-  gradedAt?: string
+  id: string;
+  assignmentId: string;
+  studentId: string;
+  status: string;
+  score?: number;
+  feedback?: string;
+  submittedAt: string;
 }
 
-// ─── Live Session ─────────────────────────────────────────────────────────────
-
-export type SessionStatus = 'SCHEDULED' | 'LIVE' | 'ENDED' | 'CANCELLED'
-
+// Live Sessions
 export interface LiveSessionDTO {
-  id: string
-  title: string
-  courseTitle: string
-  teacherName: string
-  scheduledAt: string
-  status: SessionStatus
-  participantCount?: number
-  recordingUrl?: string
+  id: string;
+  title: string;
+  courseId: string;
+  course?: { title: string };
+  teacherId: string;
+  status: string;
+  startedAt?: string;
+  endedAt?: string;
+  roomId: string;
 }
 
-// ─── Pagination ───────────────────────────────────────────────────────────────
-
-export interface PaginatedResponse<T> {
-  data: T[]
-  total: number
-  page: number
-  perPage: number
-  totalPages: number
-}
-
-export interface PaginationQuery {
-  page?: number
-  perPage?: number
-  search?: string
-  sortBy?: string
-  sortOrder?: 'asc' | 'desc'
-}
-
-// ─── API Responses ────────────────────────────────────────────────────────────
-
-export interface ApiResponse<T = unknown> {
-  success: boolean
-  data?: T
-  message?: string
-  error?: string
-}
-
-export interface ApiError {
-  statusCode: number
-  message: string
-  errors?: Record<string, string[]>
-}
-
-// ─── Notifications ────────────────────────────────────────────────────────────
-
-export type NotificationType = 'GRADE' | 'ATTENDANCE' | 'ASSIGNMENT' | 'ANNOUNCEMENT' | 'SYSTEM' | 'MESSAGE'
-
+// Notifications
 export interface NotificationDTO {
-  id: string
-  type: NotificationType
-  title: string
-  body: string
-  isRead: boolean
-  createdAt: string
+  id: string;
+  userId: string;
+  title: string;
+  body: string;
+  type: string;
+  isRead: boolean;
+  createdAt: string;
+  data?: Record<string, unknown>;
 }
 
-// ─── AI ───────────────────────────────────────────────────────────────────────
-
-export interface AIMessage {
-  role: 'user' | 'assistant'
-  content: string
-}
-
+// AI
 export interface AISessionDTO {
-  id: string
-  subject?: string
-  messageCount: number
-  tokensUsed: number
-  createdAt: string
+  id: string;
+  userId: string;
+  title: string;
+  messages?: AIMessageDTO[];
+  createdAt: string;
 }
 
-// ─── Dashboard Stats ──────────────────────────────────────────────────────────
+export interface AIMessageDTO {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+}
 
+// Generic Wrappers
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface ApiResponse<T> {
+  data: T;
+  message?: string;
+}
+
+// Stats
 export interface TeacherStats {
-  totalCourses: number
-  totalStudents: number
-  avgGrade: number
-  aiSessionsUsed: number
-  upcomingClasses: LiveSessionDTO[]
-  pendingSubmissions: number
+  totalStudents: number;
+  totalCourses: number;
+  pendingAssignments: number;
+  avgGrade: number;
 }
 
 export interface StudentStats {
-  enrolledCourses: number
-  overallGrade: number
-  streak: number
-  xp: number
-  level: number
-  aiSessionsThisMonth: number
-  pendingAssignments: number
-}
-
-export interface ParentStats {
-  childrenCount: number
-  avgGrade: number
-  avgAttendance: number
-  unreadNotifications: number
-}
-
-export interface AdminStats {
-  totalUsers: number
-  totalCourses: number
-  monthlyRevenue: number
-  platformUptime: number
-  newUsersToday: number
+  enrolledCourses: number;
+  completedAssignments: number;
+  averageGrade: number;
+  streak: number;
 }
