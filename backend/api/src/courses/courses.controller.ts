@@ -1,67 +1,68 @@
-import {
-  Controller, Get, Post, Patch, Param, Body, Query,
-  UseGuards, Request,
-} from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { CoursesService } from './courses.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @ApiTags('courses')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('courses')
 export class CoursesController {
-  constructor(private readonly coursesService: CoursesService) {}
+  constructor(private readonly svc: CoursesService) {}
 
   @Get()
   findAll(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
     @Query('search') search?: string,
+    @Query('category') category?: string,
     @Query('teacherId') teacherId?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
   ) {
-    return this.coursesService.findAll({
-      page: page ? Number(page) : 1,
-      limit: limit ? Number(limit) : 20,
-      search,
-      teacherId,
+    return this.svc.findAll({
+      search, category, teacherId,
+      isPublished: true,
+      limit: limit ? +limit : 20,
+      offset: offset ? +offset : 0,
     });
   }
 
+  // Static routes must come before :id
   @Get('my-enrollments')
-  getMyEnrollments(@Request() req: { user: { sub: string } }) {
-    return this.coursesService.getMyEnrollments(req.user.sub);
+  getMyEnrollments(@CurrentUser() user: any) {
+    return this.svc.getMyEnrollments(user.studentProfile?.id ?? user.id);
   }
 
   @Get('my-courses')
-  getMyTeacherCourses(@Request() req: { user: { sub: string } }) {
-    return this.coursesService.getMyTeacherCourses(req.user.sub);
-  }
-
-  @Post()
-  create(
-    @Body() body: { title: string; description?: string; subject?: string; gradeLevel?: string },
-    @Request() req: { user: { sub: string } },
-  ) {
-    return this.coursesService.create(body, req.user.sub);
+  @UseGuards(RolesGuard)
+  @Roles('TEACHER')
+  getMyTeacherCourses(@CurrentUser() user: any) {
+    return this.svc.getMyTeacherCourses(user.teacherProfile?.id ?? user.id);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string, @Request() req: { user: { sub: string } }) {
-    return this.coursesService.findOne(id, req.user.sub);
+  findOne(@Param('id') id: string) {
+    return this.svc.findOne(id);
+  }
+
+  @Post()
+  @UseGuards(RolesGuard)
+  @Roles('TEACHER', 'ADMIN')
+  create(@Body() dto: any, @CurrentUser() user: any) {
+    return this.svc.create(dto, user.teacherProfile?.id ?? user.id);
   }
 
   @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() body: { title?: string; description?: string; status?: string },
-    @Request() req: { user: { sub: string } },
-  ) {
-    return this.coursesService.update(id, body, req.user.sub);
+  @UseGuards(RolesGuard)
+  @Roles('TEACHER', 'ADMIN')
+  update(@Param('id') id: string, @Body() dto: any, @CurrentUser() user: any) {
+    return this.svc.update(id, dto, user.teacherProfile?.id ?? user.id);
   }
 
   @Post(':id/enroll')
-  enroll(@Param('id') id: string, @Request() req: { user: { sub: string } }) {
-    return this.coursesService.enroll(id, req.user.sub);
+  enroll(@Param('id') courseId: string, @CurrentUser() user: any) {
+    return this.svc.enroll(courseId, user.studentProfile?.id ?? user.id);
   }
 }

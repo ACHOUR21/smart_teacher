@@ -1,59 +1,57 @@
-import { Controller, Post, Get, Param, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AIService } from './ai.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @ApiTags('ai')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('ai')
 export class AIController {
-  constructor(private readonly aiService: AIService) {}
+  constructor(private readonly svc: AIService) {}
 
   @Post('sessions')
-  createSession(
-    @Body() body: { title?: string; courseId?: string },
-    @Request() req: { user: { sub: string } },
-  ) {
-    return this.aiService.createSession(req.user.sub, body.title, body.courseId);
+  createSession(@Body() body: { title: string }, @CurrentUser() user: any) {
+    return this.svc.createSession(user.id, body.title ?? 'New Chat');
   }
 
   @Get('sessions')
-  getSessions(@Request() req: { user: { sub: string } }) {
-    return this.aiService.getSessions(req.user.sub);
+  getSessions(@CurrentUser() user: any) {
+    return this.svc.getSessions(user.id);
   }
 
   @Get('sessions/:id')
-  getSession(@Param('id') id: string, @Request() req: { user: { sub: string } }) {
-    return this.aiService.getSession(id, req.user.sub);
+  getSession(@Param('id') id: string) {
+    return this.svc.getSession(id);
   }
 
   @Post('sessions/:id/chat')
   chat(
     @Param('id') id: string,
-    @Body('message') message: string,
-    @Request() req: { user: { sub: string } },
+    @Body() body: { message: string },
+    @CurrentUser() user: any,
   ) {
-    return this.aiService.chat(id, req.user.sub, message);
+    return this.svc.chat(id, user.id, body.message);
   }
 
   @Post('generate/lesson')
-  generateLesson(@Body() dto: { topic: string; gradeLevel?: string; duration?: number }) {
-    return this.aiService.generateLesson(dto);
+  generateLesson(@Body() body: { topic: string; grade?: string; duration?: number }) {
+    return this.svc.generateLesson(body.topic, body.grade, body.duration);
   }
 
   @Post('generate/quiz')
-  generateQuiz(@Body() dto: { topic: string; questionCount?: number; difficulty?: string }) {
-    return this.aiService.generateQuiz(dto);
+  generateQuiz(@Body() body: { topic: string; count?: number }) {
+    return this.svc.generateQuiz(body.topic, body.count);
   }
 
   @Post('generate/summary')
-  generateSummary(@Body() dto: { content: string }) {
-    return this.aiService.generateSummary(dto.content);
+  generateSummary(@Body() body: { text: string }) {
+    return this.svc.generateSummary(body.text);
   }
 
   @Post('generate/mindmap')
-  generateMindMap(@Body() dto: { topic: string }) {
-    return this.aiService.generateMindMap(dto.topic);
+  generateMindMap(@Body() body: { topic: string }) {
+    return this.svc.generateMindMap(body.topic);
   }
 }
