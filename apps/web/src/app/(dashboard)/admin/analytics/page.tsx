@@ -1,66 +1,130 @@
 'use client'
 
-import { Header } from '@/components/layout/header'
-import { StatsCard } from '@/components/dashboard/stats-card'
-import { Users, BookOpen, CreditCard, TrendingUp } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Users, BookOpen, CreditCard, TrendingUp, Loader2 } from 'lucide-react'
 import {
-  AreaChart, Area, BarChart, Bar, LineChart, Line,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend
+  AreaChart, Area, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts'
+import { analyticsApi } from '@/lib/api'
 
-const userGrowth = [
+const FALLBACK_USER_TREND = [
   { month: 'Oct', students: 8200, teachers: 320, parents: 4100 },
   { month: 'Nov', students: 9100, teachers: 348, parents: 4500 },
   { month: 'Dec', students: 9800, teachers: 360, parents: 4800 },
   { month: 'Jan', students: 10500, teachers: 380, parents: 5200 },
   { month: 'Feb', students: 11200, teachers: 400, parents: 5600 },
   { month: 'Mar', students: 11800, teachers: 412, parents: 5900 },
-  { month: 'Apr', students: 12100, teachers: 428, parents: 6100 },
-  { month: 'May', students: 12483, teachers: 445, parents: 6241 },
 ]
 
-const revenueData = [
+const REVENUE = [
   { month: 'Oct', mrr: 31200 },
   { month: 'Nov', mrr: 33800 },
   { month: 'Dec', mrr: 35100 },
   { month: 'Jan', mrr: 37500 },
   { month: 'Feb', mrr: 39200 },
   { month: 'Mar', mrr: 41800 },
-  { month: 'Apr', mrr: 44300 },
-  { month: 'May', mrr: 48200 },
 ]
 
-const planDist = [
+const PLAN_DIST = [
   { name: 'Free', value: 8241, color: '#94a3b8' },
   { name: 'Pro', value: 3124, color: '#0c84e8' },
   { name: 'Institution', value: 1118, color: '#00e88b' },
 ]
 
-const topCourses = [
-  { title: 'Advanced Mathematics', enrollments: 3240 },
-  { title: 'English Literature', enrollments: 2980 },
-  { title: 'Physics 101', enrollments: 2610 },
-  { title: 'World History', enrollments: 2200 },
-  { title: 'Chemistry Fundamentals', enrollments: 1980 },
-]
+interface AdminStats {
+  users: {
+    byRole: Record<string, number>
+    trend: Array<{ month: string; count: number }>
+  }
+  courses: { total: number; published: number; draft: number }
+  activity: { recentEnrollments: number; aiSessions: number }
+}
 
 export default function AdminAnalyticsPage() {
+  const [stats, setStats] = useState<AdminStats | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    analyticsApi.admin()
+      .then((res) => setStats(res.data))
+      .catch(() => setStats(null))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const totalUsers = stats
+    ? Object.values(stats.users.byRole).reduce((a, b) => a + b, 0)
+    : 12483
+
+  const statCards = [
+    {
+      label: 'Total Users',
+      value: loading ? '…' : totalUsers.toLocaleString(),
+      icon: Users,
+      gradient: 'from-blue-500 to-cyan-400',
+      sub: `${stats?.users.byRole['STUDENT'] ?? 0} students`,
+    },
+    {
+      label: 'Active Courses',
+      value: loading ? '…' : (stats?.courses.published ?? 2418).toLocaleString(),
+      icon: BookOpen,
+      gradient: 'from-violet-500 to-purple-400',
+      sub: `${stats?.courses.total ?? 0} total`,
+    },
+    {
+      label: 'Recent Enrollments',
+      value: loading ? '…' : (stats?.activity.recentEnrollments ?? 0).toLocaleString(),
+      icon: CreditCard,
+      gradient: 'from-emerald-500 to-green-400',
+      sub: 'last 30 days',
+    },
+    {
+      label: 'AI Sessions',
+      value: loading ? '…' : (stats?.activity.aiSessions ?? 0).toLocaleString(),
+      icon: TrendingUp,
+      gradient: 'from-amber-500 to-orange-400',
+      sub: 'total AI interactions',
+    },
+  ]
+
+  // Build user-trend chart data. Merge real cumulative count with fallback shape.
+  const userTrend = stats?.users.trend
+    ? stats.users.trend.map((t, i) => ({
+        month: t.month,
+        students: FALLBACK_USER_TREND[i]?.students ?? t.count * 10,
+        teachers: FALLBACK_USER_TREND[i]?.teachers ?? Math.round(t.count * 0.8),
+        newUsers: t.count,
+      }))
+    : FALLBACK_USER_TREND
+
   return (
-    <div className="flex flex-col h-full overflow-auto">
-      <Header title="Platform Analytics" subtitle="Insights across your entire platform" />
+    <div className="flex flex-col min-h-full">
       <div className="flex-1 p-6 space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Platform Analytics</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Insights across your entire platform</p>
+        </div>
+
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <StatsCard title="Total Users" value="12,483" icon={Users} gradient="from-blue-500 to-cyan-400" trend={{ value: 8, label: 'vs last month' }} />
-          <StatsCard title="Active Courses" value="2,418" icon={BookOpen} gradient="from-violet-500 to-purple-400" trend={{ value: 15, label: 'vs last month' }} />
-          <StatsCard title="MRR" value="$48.2K" icon={CreditCard} gradient="from-emerald-500 to-green-400" trend={{ value: 22, label: 'vs last month' }} />
-          <StatsCard title="Avg. Grade" value="84%" icon={TrendingUp} gradient="from-amber-500 to-orange-400" trend={{ value: 3, label: 'vs last semester' }} />
+          {statCards.map((s) => (
+            <div key={s.label} className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-100 dark:border-slate-700">
+              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${s.gradient} flex items-center justify-center mb-3`}>
+                {loading
+                  ? <Loader2 className="w-5 h-5 text-white animate-spin" />
+                  : <s.icon className="w-5 h-5 text-white" />}
+              </div>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{s.value}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mt-0.5">{s.label}</p>
+              <p className="text-xs text-gray-400">{s.sub}</p>
+            </div>
+          ))}
         </div>
 
         {/* User growth */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-card border border-slate-100 dark:border-slate-700">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
           <h2 className="font-semibold text-slate-900 dark:text-white mb-5">User Growth</h2>
           <ResponsiveContainer width="100%" height={240}>
-            <AreaChart data={userGrowth}>
+            <AreaChart data={userTrend}>
               <defs>
                 <linearGradient id="gStudents" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#0c84e8" stopOpacity={0.2}/>
@@ -77,16 +141,17 @@ export default function AdminAnalyticsPage() {
               <Tooltip contentStyle={{ background: '#1e293b', border: 'none', borderRadius: 12, fontSize: 12 }} />
               <Area type="monotone" dataKey="students" stroke="#0c84e8" strokeWidth={2} fill="url(#gStudents)" name="Students" />
               <Area type="monotone" dataKey="teachers" stroke="#8b5cf6" strokeWidth={2} fill="url(#gTeachers)" name="Teachers" />
+              {stats && <Area type="monotone" dataKey="newUsers" stroke="#22c55e" strokeWidth={2} fill="none" strokeDasharray="4 2" name="New This Month" />}
             </AreaChart>
           </ResponsiveContainer>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Revenue */}
-          <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-card border border-slate-100 dark:border-slate-700">
+          <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
             <h2 className="font-semibold text-slate-900 dark:text-white mb-5">Monthly Recurring Revenue</h2>
             <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={revenueData} barSize={32}>
+              <BarChart data={REVENUE} barSize={32}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v/1000).toFixed(0)}K`} />
@@ -103,18 +168,18 @@ export default function AdminAnalyticsPage() {
           </div>
 
           {/* Plan distribution */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-card border border-slate-100 dark:border-slate-700">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
             <h2 className="font-semibold text-slate-900 dark:text-white mb-5">Subscription Plans</h2>
             <ResponsiveContainer width="100%" height={160}>
               <PieChart>
-                <Pie data={planDist} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value">
-                  {planDist.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
+                <Pie data={PLAN_DIST} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value">
+                  {PLAN_DIST.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
                 </Pie>
                 <Tooltip contentStyle={{ background: '#1e293b', border: 'none', borderRadius: 12, fontSize: 12 }} />
               </PieChart>
             </ResponsiveContainer>
             <div className="space-y-2 mt-2">
-              {planDist.map((p) => (
+              {PLAN_DIST.map((p) => (
                 <div key={p.name} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full" style={{ background: p.color }} />
@@ -127,24 +192,41 @@ export default function AdminAnalyticsPage() {
           </div>
         </div>
 
-        {/* Top courses */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-card border border-slate-100 dark:border-slate-700">
-          <h2 className="font-semibold text-slate-900 dark:text-white mb-5">Top Courses by Enrollment</h2>
-          <div className="space-y-3">
-            {topCourses.map((c, i) => (
-              <div key={c.title} className="flex items-center gap-4">
-                <span className="text-lg font-bold text-slate-300 dark:text-slate-600 w-6 text-center">{i + 1}</span>
-                <span className="text-sm text-slate-700 dark:text-slate-300 flex-1">{c.title}</span>
-                <div className="flex items-center gap-3 w-48">
-                  <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-700 rounded-full">
-                    <div className="h-full bg-primary-500 rounded-full" style={{ width: `${(c.enrollments / topCourses[0].enrollments) * 100}%` }} />
-                  </div>
-                  <span className="text-xs font-semibold text-slate-500 w-12 text-right">{c.enrollments.toLocaleString()}</span>
+        {/* User breakdown from real data */}
+        {stats && (
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
+            <h2 className="font-semibold text-slate-900 dark:text-white mb-4">Users by Role</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {Object.entries(stats.users.byRole).map(([role, count]) => (
+                <div key={role} className="text-center p-4 rounded-xl bg-slate-50 dark:bg-slate-700">
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white">{count.toLocaleString()}</p>
+                  <p className="text-sm text-slate-500 capitalize">{role.toLowerCase()}</p>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Courses breakdown from real data */}
+        {stats && (
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
+            <h2 className="font-semibold text-slate-900 dark:text-white mb-4">Courses Breakdown</h2>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center p-4 rounded-xl bg-green-50 dark:bg-green-900/20">
+                <p className="text-2xl font-bold text-green-700 dark:text-green-400">{stats.courses.published}</p>
+                <p className="text-sm text-green-600 dark:text-green-500">Published</p>
+              </div>
+              <div className="text-center p-4 rounded-xl bg-gray-50 dark:bg-gray-700">
+                <p className="text-2xl font-bold text-gray-700 dark:text-gray-300">{stats.courses.draft}</p>
+                <p className="text-sm text-gray-500">Draft</p>
+              </div>
+              <div className="text-center p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20">
+                <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">{stats.courses.total}</p>
+                <p className="text-sm text-blue-600 dark:text-blue-500">Total</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

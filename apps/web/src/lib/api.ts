@@ -128,3 +128,9 @@ export const aiApi = {
   generateSummary: (data: any) => api.post('/ai/generate/summary', data),
   generateMindMap: (data: any) => api.post('/ai/generate/mindmap', data),
 };
+
+export const analyticsApi = {
+  teacher: () => api.get('/analytics/teacher'),
+  admin: () => api.get('/analytics/admin'),
+  student: () => api.get('/analytics/student'),
+};
