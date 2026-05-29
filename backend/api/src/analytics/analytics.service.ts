@@ -25,7 +25,7 @@ export class AnalyticsService {
           select: {
             id: true,
             title: true,
-            status: true,
+            isPublished: true,
             _count: { select: { enrollments: true, chapters: true } },
           },
         }),
@@ -90,7 +90,7 @@ export class AnalyticsService {
         courses: courses.map((c) => ({
           id: c.id,
           title: c.title,
-          status: c.status,
+          status: c.isPublished ? 'PUBLISHED' : 'DRAFT',
           enrolled: c._count.enrollments,
           chapters: c._count.chapters,
         })),
@@ -106,7 +106,7 @@ export class AnalyticsService {
         await Promise.all([
           this.prisma.user.groupBy({ by: ['role'], _count: { id: true } }),
           this.prisma.course.count(),
-          this.prisma.course.count({ where: { status: 'PUBLISHED' } }),
+          this.prisma.course.count({ where: { isPublished: true } }),
           this.prisma.enrollment.count({
             where: {
               enrolledAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
@@ -154,7 +154,7 @@ export class AnalyticsService {
       const [enrollments, completedLessons, submissions, attendances] =
         await Promise.all([
           this.prisma.enrollment.count({ where: { studentId } }),
-          this.prisma.lessonProgress.count({ where: { studentId, completed: true } }),
+          this.prisma.lessonProgress.count({ where: { studentId, isCompleted: true } }),
           this.prisma.submission.findMany({
             where: { studentId },
             select: { score: true, status: true, submittedAt: true },

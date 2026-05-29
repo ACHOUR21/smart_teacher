@@ -158,19 +158,17 @@ export class CoursesService {
   }
 
   async completeLesson(courseId: string, lessonId: string, studentId: string) {
-    // Verify lesson belongs to the course
     const lesson = await this.prisma.lesson.findFirst({
       where: { id: lessonId, chapter: { courseId } },
     });
     if (!lesson) throw new NotFoundException('Lesson not found in this course');
 
     const progress = await this.prisma.lessonProgress.upsert({
-      where: { lessonId_studentId: { lessonId, studentId } },
-      create: { lessonId, studentId, completed: true, completedAt: new Date() },
-      update: { completed: true, completedAt: new Date() },
+      where: { studentId_lessonId: { studentId, lessonId } },
+      create: { lessonId, studentId, isCompleted: true, completedAt: new Date() },
+      update: { isCompleted: true, completedAt: new Date() },
     });
 
-    // Invalidate student analytics cache
     this.cache.delByPrefix('analytics:student');
     return progress;
   }
@@ -197,7 +195,7 @@ export class CoursesService {
     for (const chapter of course.chapters) {
       for (const lesson of chapter.lessons) {
         totalLessons++;
-        if (lesson.progress.some((p) => p.completed)) completedLessons++;
+        if (lesson.progress.some((p) => p.isCompleted)) completedLessons++;
       }
     }
 
