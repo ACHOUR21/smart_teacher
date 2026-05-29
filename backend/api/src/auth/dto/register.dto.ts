@@ -1,24 +1,31 @@
-import { IsEmail, IsEnum, IsString, MinLength, MaxLength } from 'class-validator'
-import { ApiProperty } from '@nestjs/swagger'
+import { IsEmail, IsEnum, IsString, Matches, MinLength } from 'class-validator';
+import { Role } from '@prisma/client';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class RegisterDto {
-  @ApiProperty({ example: 'John Doe' })
+  @ApiProperty({ example: 'student@edu.com' })
+  @IsEmail({}, { message: 'Enter a valid email address' })
+  email: string;
+
+  @ApiProperty({ minLength: 8 })
   @IsString()
-  @MinLength(2)
-  @MaxLength(100)
-  name: string
+  @MinLength(8, { message: 'Password must be at least 8 characters' })
+  @Matches(/(?=.*[A-Z])(?=.*[0-9])/, {
+    message: 'Password must contain at least one uppercase letter and one number',
+  })
+  password: string;
 
-  @ApiProperty({ example: 'john@example.com' })
-  @IsEmail()
-  email: string
-
-  @ApiProperty({ example: 'securePassword123' })
+  @ApiProperty({ example: 'Amir' })
   @IsString()
-  @MinLength(8)
-  @MaxLength(128)
-  password: string
+  @MinLength(1, { message: 'First name is required' })
+  firstName: string;
 
-  @ApiProperty({ enum: ['STUDENT', 'TEACHER', 'PARENT', 'ADMIN'] })
-  @IsEnum(['STUDENT', 'TEACHER', 'PARENT', 'ADMIN'])
-  role: string
+  @ApiProperty({ example: 'Hassan' })
+  @IsString()
+  @MinLength(1, { message: 'Last name is required' })
+  lastName: string;
+
+  @ApiProperty({ enum: Role })
+  @IsEnum(Role, { message: 'Role must be STUDENT, TEACHER, PARENT, or ADMIN' })
+  role: Role;
 }
