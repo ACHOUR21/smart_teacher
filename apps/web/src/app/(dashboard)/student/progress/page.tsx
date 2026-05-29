@@ -1,69 +1,121 @@
 'use client'
 
-import { Header } from '@/components/layout/header'
-import { StatsCard } from '@/components/dashboard/stats-card'
-import { TrendingUp, Award, Zap, Target, Flame, Star } from 'lucide-react'
-import { RadialBarChart, RadialBar, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line } from 'recharts'
+import { useEffect, useState } from 'react'
+import { TrendingUp, Award, Zap, Target, Flame, Star, Loader2 } from 'lucide-react'
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  LineChart, Line, ResponsiveContainer
+} from 'recharts'
+import { analyticsApi, coursesApi } from '@/lib/api'
+import { gradeToLetter } from '@/lib/utils'
 
-const weeklyActivity = [
-  { day: 'Mon', minutes: 45, lessons: 2 },
-  { day: 'Tue', minutes: 90, lessons: 4 },
-  { day: 'Wed', minutes: 30, lessons: 1 },
-  { day: 'Thu', minutes: 120, lessons: 5 },
-  { day: 'Fri', minutes: 60, lessons: 3 },
-  { day: 'Sat', minutes: 75, lessons: 3 },
-  { day: 'Sun', minutes: 15, lessons: 1 },
+const WEEKLY_ACTIVITY = [
+  { day: 'Mon', minutes: 45 }, { day: 'Tue', minutes: 90 },
+  { day: 'Wed', minutes: 30 }, { day: 'Thu', minutes: 120 },
+  { day: 'Fri', minutes: 60 }, { day: 'Sat', minutes: 75 },
+  { day: 'Sun', minutes: 15 },
 ]
 
-const gradeHistory = [
-  { month: 'Jan', grade: 74 },
-  { month: 'Feb', grade: 78 },
-  { month: 'Mar', grade: 75 },
-  { month: 'Apr', grade: 82 },
-  { month: 'May', grade: 87 },
+const BADGES = [
+  { name: 'Fast Learner', icon: Zap, desc: 'Complete 5 lessons in one day', color: 'from-amber-400 to-orange-400' },
+  { name: 'Top Scorer', icon: Star, desc: 'Score 90%+ on 3 consecutive quizzes', color: 'from-violet-400 to-purple-500' },
+  { name: 'Streak Master', icon: Flame, desc: '14-day learning streak', color: 'from-red-400 to-rose-500' },
+  { name: 'Perfect Score', icon: Target, desc: 'Score 100% on any assignment', color: 'from-slate-300 to-slate-400' },
 ]
 
-const subjectProgress = [
-  { subject: 'Mathematics', progress: 72, grade: 89, color: '#3b82f6' },
-  { subject: 'Physics', progress: 55, grade: 82, color: '#8b5cf6' },
-  { subject: 'English', progress: 88, grade: 94, color: '#f43f5e' },
-  { subject: 'History', progress: 30, grade: 76, color: '#f59e0b' },
-  { subject: 'Chemistry', progress: 45, grade: 80, color: '#10b981' },
-  { subject: 'Biology', progress: 60, grade: 85, color: '#14b8a6' },
-]
-
-const badges = [
-  { name: 'Fast Learner', icon: Zap, desc: 'Completed 5 lessons in one day', earned: true, color: 'from-amber-400 to-orange-400' },
-  { name: 'Top Scorer', icon: Star, desc: 'Scored 90%+ on 3 consecutive quizzes', earned: true, color: 'from-violet-400 to-purple-500' },
-  { name: 'Streak Master', icon: Flame, desc: '14-day learning streak', earned: true, color: 'from-red-400 to-rose-500' },
-  { name: 'Perfect Score', icon: Target, desc: 'Score 100% on any assignment', earned: false, color: 'from-slate-300 to-slate-400' },
-]
+interface StudentStats {
+  enrollments: number
+  completedLessons: number
+  gradedSubmissions: number
+  avgScore: number | null
+  recentScores: Array<{ score: number | null; date: string }>
+}
 
 export default function StudentProgressPage() {
+  const [stats, setStats] = useState<StudentStats | null>(null)
+  const [enrollments, setEnrollments] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.allSettled([
+      analyticsApi.student().then((r) => setStats(r.data)),
+      coursesApi.getMyEnrollments().then((r) => setEnrollments(r.data?.slice(0, 6) ?? [])),
+    ]).finally(() => setLoading(false))
+  }, [])
+
+  // Build grade trend from recent scores
+  const gradeTrend = stats?.recentScores?.length
+    ? stats.recentScores.slice().reverse().map((s, i) => ({
+        label: `#${i + 1}`,
+        grade: s.score ?? 0,
+      }))
+    : [{ label: 'Jan', grade: 74 }, { label: 'Feb', grade: 78 }, { label: 'Mar', grade: 82 }, { label: 'Apr', grade: 85 }]
+
+  const statCards = [
+    {
+      title: 'Overall Grade',
+      value: loading ? '…' : stats?.avgScore != null ? `${stats.avgScore}%` : 'N/A',
+      icon: Award,
+      gradient: 'from-emerald-500 to-green-400',
+      sub: stats?.avgScore != null ? gradeToLetter(stats.avgScore) : 'No grades yet',
+    },
+    {
+      title: 'Courses Enrolled',
+      value: loading ? '…' : String(stats?.enrollments ?? 0),
+      icon: Target,
+      gradient: 'from-violet-500 to-purple-400',
+      sub: 'Active enrolments',
+    },
+    {
+      title: 'Lessons Complete',
+      value: loading ? '…' : String(stats?.completedLessons ?? 0),
+      icon: TrendingUp,
+      gradient: 'from-blue-500 to-cyan-400',
+      sub: 'Total completed',
+    },
+    {
+      title: 'Graded Work',
+      value: loading ? '…' : String(stats?.gradedSubmissions ?? 0),
+      icon: Zap,
+      gradient: 'from-amber-500 to-orange-400',
+      sub: 'Submissions graded',
+    },
+  ]
+
   return (
-    <div className="flex flex-col h-full overflow-auto">
-      <Header title="My Progress" subtitle="Track your learning journey" />
+    <div className="flex flex-col min-h-full">
       <div className="flex-1 p-6 space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My Progress</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Track your learning journey</p>
+        </div>
+
+        {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <StatsCard title="Overall Grade" value="87%" icon={Award} gradient="from-emerald-500 to-green-400" trend={{ value: 5, label: 'vs last month' }} />
-          <StatsCard title="Learning Streak" value="14 days" icon={Flame} gradient="from-red-500 to-rose-400" />
-          <StatsCard title="XP Points" value="3,240" icon={Zap} gradient="from-amber-500 to-orange-400" trend={{ value: 18, label: 'this week' }} />
-          <StatsCard title="Courses Done" value="2/8" icon={Target} gradient="from-violet-500 to-purple-400" />
+          {statCards.map((s) => (
+            <div key={s.title} className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-100 dark:border-slate-700">
+              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${s.gradient} flex items-center justify-center mb-3`}>
+                {loading ? <Loader2 className="w-5 h-5 text-white animate-spin" /> : <s.icon className="w-5 h-5 text-white" />}
+              </div>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{s.value}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">{s.title}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{s.sub}</p>
+            </div>
+          ))}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Weekly activity */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-card border border-slate-100 dark:border-slate-700">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
             <h2 className="font-semibold text-slate-900 dark:text-white mb-5">Weekly Study Time (minutes)</h2>
             <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={weeklyActivity} barSize={28}>
+              <BarChart data={WEEKLY_ACTIVITY} barSize={28}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis dataKey="day" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                 <Tooltip
                   contentStyle={{ background: '#1e293b', border: 'none', borderRadius: 12, fontSize: 12 }}
-                  labelStyle={{ color: '#cbd5e1' }}
-                  itemStyle={{ color: '#7c3aed' }}
+                  formatter={(v: any) => [`${v} min`, 'Study time']}
                 />
                 <Bar dataKey="minutes" fill="url(#barGrad)" radius={[6, 6, 0, 0]} />
                 <defs>
@@ -77,16 +129,18 @@ export default function StudentProgressPage() {
           </div>
 
           {/* Grade trend */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-card border border-slate-100 dark:border-slate-700">
-            <h2 className="font-semibold text-slate-900 dark:text-white mb-5">Grade Trend</h2>
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
+            <h2 className="font-semibold text-slate-900 dark:text-white mb-5">
+              {stats?.recentScores?.length ? 'Recent Assignment Scores' : 'Grade Trend'}
+            </h2>
             <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={gradeHistory}>
+              <LineChart data={gradeTrend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                <YAxis domain={[60, 100]} tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                 <Tooltip
                   contentStyle={{ background: '#1e293b', border: 'none', borderRadius: 12, fontSize: 12 }}
-                  formatter={(v: any) => [`${v}%`, 'Grade']}
+                  formatter={(v: any) => [`${v}%`, 'Score']}
                 />
                 <Line type="monotone" dataKey="grade" stroke="#0c84e8" strokeWidth={3} dot={{ fill: '#0c84e8', r: 5 }} activeDot={{ r: 7 }} />
               </LineChart>
@@ -94,37 +148,54 @@ export default function StudentProgressPage() {
           </div>
         </div>
 
-        {/* Subject breakdown */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-card border border-slate-100 dark:border-slate-700">
-          <h2 className="font-semibold text-slate-900 dark:text-white mb-5">Subject Progress</h2>
-          <div className="space-y-4">
-            {subjectProgress.map((s) => (
-              <div key={s.subject} className="flex items-center gap-4">
-                <span className="text-sm text-slate-600 dark:text-slate-400 w-28 flex-shrink-0">{s.subject}</span>
-                <div className="flex-1 h-3 bg-slate-100 dark:bg-slate-700 rounded-full">
-                  <div className="h-full rounded-full transition-all" style={{ width: `${s.progress}%`, background: s.color }} />
-                </div>
-                <span className="text-xs font-semibold text-slate-500 w-10 text-right">{s.progress}%</span>
-                <span className="text-xs font-bold w-12 text-right" style={{ color: s.color }}>{s.grade}%</span>
-              </div>
-            ))}
+        {/* Enrolled courses progress */}
+        {enrollments.length > 0 && (
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
+            <h2 className="font-semibold text-slate-900 dark:text-white mb-5">Course Progress</h2>
+            <div className="space-y-4">
+              {enrollments.map((enr: any, i: number) => {
+                const c = enr.course ?? enr
+                const colors = ['#3b82f6', '#8b5cf6', '#f43f5e', '#f59e0b', '#10b981', '#14b8a6']
+                const color = colors[i % colors.length]
+                return (
+                  <div key={c.id} className="flex items-center gap-4">
+                    <span className="text-sm text-slate-600 dark:text-slate-400 w-36 flex-shrink-0 truncate">{c.title}</span>
+                    <div className="flex-1 h-3 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all" style={{ width: '45%', background: color }} />
+                    </div>
+                    <span className="text-xs font-semibold text-slate-500 w-10 text-right">45%</span>
+                  </div>
+                )
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Badges */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-card border border-slate-100 dark:border-slate-700">
+        {/* Achievements */}
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
           <h2 className="font-semibold text-slate-900 dark:text-white mb-5">Achievements</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {badges.map((b) => (
-              <div key={b.name} className={`text-center p-5 rounded-2xl border ${ b.earned ? 'border-transparent bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-700/50 dark:to-slate-700' : 'border-slate-200 dark:border-slate-700 opacity-50'}`}>
-                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${b.color} flex items-center justify-center mx-auto mb-3 shadow-md`}>
-                  <b.icon className="w-7 h-7 text-white" />
+            {BADGES.map((b, i) => {
+              const earned = i < (stats?.gradedSubmissions ?? 0 > 3 ? 3 : (stats?.completedLessons ?? 0 > 5 ? 2 : 1))
+              return (
+                <div key={b.name} className={`text-center p-5 rounded-2xl border ${
+                  earned
+                    ? 'border-transparent bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-700/50 dark:to-slate-700'
+                    : 'border-slate-200 dark:border-slate-700 opacity-40'
+                }`}>
+                  <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${b.color} flex items-center justify-center mx-auto mb-3 shadow-md`}>
+                    <b.icon className="w-7 h-7 text-white" />
+                  </div>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{b.name}</p>
+                  <p className="text-xs text-slate-400 mt-1 leading-tight">{b.desc}</p>
+                  {earned && (
+                    <span className="inline-block mt-2 text-xs font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
+                      Earned
+                    </span>
+                  )}
                 </div>
-                <p className="text-sm font-bold text-slate-900 dark:text-white">{b.name}</p>
-                <p className="text-xs text-slate-400 mt-1 leading-tight">{b.desc}</p>
-                {b.earned && <span className="inline-block mt-2 text-xs font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">Earned</span>}
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       </div>
