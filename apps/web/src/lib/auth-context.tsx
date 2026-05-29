@@ -1,73 +1,106 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import { authApi } from './api';
+import { ROLE_REDIRECTS } from './constants';
+import { toast } from 'sonner';
 
 interface User {
   id: string;
-  name: string;
   email: string;
+  firstName: string;
+  lastName: string;
   role: string;
   avatarUrl?: string;
+  isActive: boolean;
 }
 
 interface AuthContextValue {
   user: User | null;
-  isLoading: boolean;
-  login: (email: string, password: string) => Promise<User>;
-  register: (name: string, email: string, password: string, role: string) => Promise<User>;
-  logout: () => Promise<void>;
+  token: string | null;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  register: (data: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+  }) => Promise<void>;
+  logout: () => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [token, setToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const token = localStorage.getItem('accessToken');
-    if (token) {
-      authApi.getMe()
-        .then((res) => setUser(res.data))
-        .catch(() => localStorage.removeItem('accessToken'))
-        .finally(() => setIsLoading(false));
-    } else {
-      setIsLoading(false);
+  const hydrateFromStorage = useCallback(async () => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    if (!stored) { setLoading(false); return; }
+    setToken(stored);
+    try {
+      const res = await authApi.me();
+      setUser(res.data);
+    } catch {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-  async function login(email: string, password: string): Promise<User> {
+  useEffect(() => { hydrateFromStorage(); }, [hydrateFromStorage]);
+
+  const login = useCallback(async (email: string, password: string) => {
     const res = await authApi.login({ email, password });
-    const { accessToken, refreshToken, user: u } = res.data;
+    const { user: u, accessToken, refreshToken } = res.data;
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
+    // Also set cookie for middleware
+    document.cookie = `accessToken=${accessToken}; path=/; max-age=900; SameSite=Lax`;
+    setToken(accessToken);
     setUser(u);
-    return u;
-  }
+    const roleKey = (u.role as string).toLowerCase() as keyof typeof ROLE_REDIRECTS;
+    router.push(ROLE_REDIRECTS[roleKey] ?? '/student');
+  }, [router]);
 
-  async function register(name: string, email: string, password: string, role: string): Promise<User> {
-    const res = await authApi.register({ name, email, password, role });
-    const { accessToken, refreshToken, user: u } = res.data;
+  const register = useCallback(async (data: any) => {
+    const res = await authApi.register(data);
+    const { user: u, accessToken, refreshToken } = res.data;
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
+    document.cookie = `accessToken=${accessToken}; path=/; max-age=900; SameSite=Lax`;
+    setToken(accessToken);
     setUser(u);
-    return u;
-  }
+    router.push('/onboarding');
+  }, [router]);
 
-  async function logout() {
-    const refreshToken = localStorage.getItem('refreshToken') ?? '';
+  const logout = useCallback(() => {
+    authApi.logout().catch(() => {});
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    document.cookie = 'accessToken=; path=/; max-age=0';
+    setUser(null);
+    setToken(null);
+    router.push('/login');
+    toast.success('Signed out successfully');
+  }, [router]);
+
+  const refreshUser = useCallback(async () => {
     try {
-      await authApi.logout({ refreshToken });
-    } finally {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      setUser(null);
-    }
-  }
+      const res = await authApi.me();
+      setUser(res.data);
+    } catch {}
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
