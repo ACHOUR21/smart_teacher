@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { assignmentsApi, aiApi } from '@/lib/api';
+import { assignmentsApi, aiApi, coursesApi } from '@/lib/api';
 
 const STEPS = ['Details', 'Questions', 'Settings', 'Review'];
 
@@ -25,30 +25,26 @@ const detailsSchema = z.object({
   totalPoints: z.coerce.number().min(1).max(1000),
 });
 
-const questionSchema = z.object({
-  type: z.enum(['MCQ', 'TEXT']),
-  text: z.string().min(3, 'Question text required'),
-  points: z.coerce.number().min(1),
-  options: z.array(z.string()).optional(),
-  correctAnswer: z.string().optional(),
-});
-
-const MOCK_COURSES = [
-  { id: 'c1', title: 'Advanced Mathematics' },
-  { id: 'c2', title: 'Computer Science 101' },
-  { id: 'c3', title: 'Physics Fundamentals' },
-];
-
 export default function NewAssignmentPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [questions, setQuestions] = useState<any[]>([
     { type: 'MCQ', text: '', points: 10, options: ['', '', '', ''], correctAnswer: '' },
   ]);
+  const [courses, setCourses] = useState<any[]>([]);
   const [generatingAI, setGeneratingAI] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const { register, handleSubmit, getValues, watch, formState: { errors } } = useForm({
+  useEffect(() => {
+    coursesApi.getMyTeacherCourses()
+      .then((res) => {
+        const list = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
+        setCourses(list);
+      })
+      .catch(() => setCourses([]));
+  }, []);
+
+  const { register, handleSubmit, getValues, formState: { errors } } = useForm({
     resolver: zodResolver(detailsSchema),
     defaultValues: { totalPoints: 100 },
   });
@@ -97,7 +93,6 @@ export default function NewAssignmentPage() {
         toast.success('AI generated questions!');
       }
     } catch {
-      // fallback mock
       setQuestions([
         { type: 'MCQ', text: `What is the main concept of ${title}?`, points: 10, options: ['Option A', 'Option B', 'Option C', 'Option D'], correctAnswer: 'Option A' },
         { type: 'MCQ', text: 'Which of the following best describes the process?', points: 10, options: ['First option', 'Second option', 'Third option', 'Fourth option'], correctAnswer: 'Second option' },
@@ -126,7 +121,6 @@ export default function NewAssignmentPage() {
 
   return (
     <div className="flex-1 p-6 max-w-3xl mx-auto">
-      {/* Header */}
       <div className="flex items-center gap-3 mb-8">
         <Link href="/teacher/assignments" className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
           <ArrowLeft className="w-5 h-5" />
@@ -176,7 +170,8 @@ export default function NewAssignmentPage() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Course</label>
                 <select {...register('courseId')} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
                   <option value="">Select course</option>
-                  {MOCK_COURSES.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+                  {courses.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+                  {courses.length === 0 && <option disabled>Loading courses...</option>}
                 </select>
                 {errors.courseId && <p className="mt-1 text-xs text-red-500">{errors.courseId.message as string}</p>}
               </div>
@@ -285,17 +280,14 @@ export default function NewAssignmentPage() {
             {[{
               label: 'Allow late submissions',
               desc: 'Students can submit after the due date',
-              key: 'allowLate',
             }, {
               label: 'Shuffle questions',
               desc: 'Randomize question order for each student',
-              key: 'shuffle',
             }, {
               label: 'Show correct answers after submission',
               desc: 'Students see the correct answers once graded',
-              key: 'showAnswers',
             }].map((s) => (
-              <div key={s.key} className="flex items-start justify-between gap-4">
+              <div key={s.label} className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-sm font-medium text-gray-900 dark:text-white">{s.label}</p>
                   <p className="text-xs text-gray-400 mt-0.5">{s.desc}</p>
