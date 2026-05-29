@@ -1,15 +1,17 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
   LayoutDashboard, BookOpen, Sparkles, Video, ClipboardList,
   BarChart3, Users, MessageSquare, Settings, Bot, TrendingUp,
   Calendar, Clock, CreditCard, Shield, FileText, GraduationCap,
-  Heart, LogOut, ChevronLeft, Bell
+  Heart, LogOut, ChevronLeft
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useSidebar } from '@/lib/store'
+import { useAuth } from '@/lib/auth-context'
 import type { Role } from '@/lib/constants'
 
 const iconMap: Record<string, React.ElementType> = {
@@ -18,7 +20,13 @@ const iconMap: Record<string, React.ElementType> = {
   Calendar, Clock, CreditCard, Shield, FileText,
 }
 
-const roleConfig: Record<Role, { label: string; color: string; gradient: string; icon: React.ElementType; nav: Array<{ label: string; href: string; icon: string }> }> = {
+const roleConfig: Record<Role, {
+  label: string
+  color: string
+  gradient: string
+  icon: React.ElementType
+  nav: Array<{ label: string; href: string; icon: string }>
+}> = {
   teacher: {
     label: 'Teacher',
     color: 'text-blue-600',
@@ -87,17 +95,20 @@ const roleConfig: Record<Role, { label: string; color: string; gradient: string;
   },
 }
 
-interface SidebarProps {
-  role: Role
-  user?: { name: string; email: string }
-  collapsed?: boolean
-  onToggle?: () => void
-}
-
-export function Sidebar({ role, user, collapsed = false, onToggle }: SidebarProps) {
+export function Sidebar() {
   const pathname = usePathname()
-  const config = roleConfig[role]
+  const router = useRouter()
+  const { collapsed, toggle } = useSidebar()
+  const { user, logout } = useAuth()
+
+  const role = ((user?.role ?? 'student').toLowerCase()) as Role
+  const config = roleConfig[role] ?? roleConfig.student
   const RoleIcon = config.icon
+
+  const handleLogout = () => {
+    logout()
+    router.push('/login')
+  }
 
   return (
     <motion.aside
@@ -120,8 +131,9 @@ export function Sidebar({ role, user, collapsed = false, onToggle }: SidebarProp
 
       {/* Collapse toggle */}
       <button
-        onClick={onToggle}
+        onClick={toggle}
         className="absolute top-5 -right-3 w-6 h-6 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shadow-sm z-10 hover:bg-slate-50 transition-colors"
+        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
       >
         <ChevronLeft className={cn('w-3 h-3 text-slate-400 transition-transform', collapsed && 'rotate-180')} />
       </button>
@@ -130,7 +142,7 @@ export function Sidebar({ role, user, collapsed = false, onToggle }: SidebarProp
       <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto scrollbar-hide">
         {config.nav.map((item) => {
           const Icon = iconMap[item.icon] || LayoutDashboard
-          const isActive = pathname === item.href
+          const isActive = pathname === item.href || (item.href !== '/teacher' && item.href !== '/student' && item.href !== '/parent' && item.href !== '/admin' && pathname.startsWith(item.href))
           return (
             <Link
               key={item.href}
@@ -154,15 +166,18 @@ export function Sidebar({ role, user, collapsed = false, onToggle }: SidebarProp
         {!collapsed && user && (
           <div className="flex items-center gap-3 px-2 py-2 mb-2">
             <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${config.gradient} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
-              {user.name.slice(0, 2).toUpperCase()}
+              {user.firstName ? `${user.firstName[0]}${user.lastName?.[0] ?? ''}`.toUpperCase() : '??'}
             </div>
             <div className="min-w-0">
-              <div className="text-xs font-semibold text-slate-900 dark:text-white truncate">{user.name}</div>
+              <div className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+                {user.firstName} {user.lastName}
+              </div>
               <div className="text-xs text-slate-400 truncate">{user.email}</div>
             </div>
           </div>
         )}
         <button
+          onClick={handleLogout}
           className={cn(
             'sidebar-link w-full text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30',
             collapsed && 'justify-center px-0'
