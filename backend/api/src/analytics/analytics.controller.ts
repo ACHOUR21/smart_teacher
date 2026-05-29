@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -28,5 +28,17 @@ export class AnalyticsController {
   @Roles('STUDENT')
   getStudentAnalytics(@Request() req: any) {
     return this.analyticsService.getStudentAnalytics(req.user.sub);
+  }
+
+  @Get('audit-logs')
+  @Roles('ADMIN')
+  getAuditLogs(
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.analyticsService.getAuditLogs(
+      limit ? +limit : 50,
+      offset ? +offset : 0,
+    );
   }
 }

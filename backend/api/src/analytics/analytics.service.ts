@@ -39,7 +39,6 @@ export class AnalyticsService {
         this.prisma.liveSession.count({ where: { teacherId } }),
       ]);
 
-      // Grade distribution buckets
       const gradeDistribution = [
         { grade: 'A', range: '90-100', count: 0 },
         { grade: 'B', range: '80-89', count: 0 },
@@ -56,7 +55,6 @@ export class AnalyticsService {
         else gradeDistribution[4].count++;
       }
 
-      // Monthly submission trend – last 6 months
       const now = new Date();
       const submissionTrend = Array.from({ length: 6 }, (_, i) => {
         const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
@@ -69,10 +67,7 @@ export class AnalyticsService {
         };
       });
 
-      const totalStudents = courses.reduce(
-        (sum, c) => sum + c._count.enrollments,
-        0,
-      );
+      const totalStudents = courses.reduce((sum, c) => sum + c._count.enrollments, 0);
       const avgScore =
         gradedSubmissions.length > 0
           ? Math.round(
@@ -115,7 +110,6 @@ export class AnalyticsService {
           this.prisma.aISession.count(),
         ]);
 
-      // Registration trend – last 6 months
       const now = new Date();
       const usersByMonth = await Promise.all(
         Array.from({ length: 6 }, async (_, i) => {
@@ -185,5 +179,20 @@ export class AnalyticsService {
         })),
       };
     }, 2 * 60_000);
+  }
+
+  async getAuditLogs(limit = 50, offset = 0) {
+    const [data, total] = await Promise.all([
+      this.prisma.auditLog.findMany({
+        include: {
+          user: { select: { email: true, firstName: true, lastName: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset,
+      }),
+      this.prisma.auditLog.count(),
+    ]);
+    return { data, total, limit, offset };
   }
 }
