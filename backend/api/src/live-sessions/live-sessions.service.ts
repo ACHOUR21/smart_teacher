@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { randomUUID } from 'crypto';
 
@@ -10,25 +10,37 @@ export class LiveSessionsService {
     courseId?: string;
     teacherId?: string;
     status?: string;
+    upcoming?: boolean;
     limit?: number;
     offset?: number;
   }) {
-    const { courseId, teacherId, status, limit = 20, offset = 0 } = params;
+    const { courseId, teacherId, status, upcoming, limit = 20, offset = 0 } = params;
     const where: any = {};
     if (courseId) where.courseId = courseId;
     if (teacherId) where.teacherId = teacherId;
     if (status) where.status = status;
+    if (upcoming) {
+      where.OR = [
+        { status: 'LIVE' },
+        { status: 'SCHEDULED', scheduledAt: { gte: new Date() } },
+      ];
+    }
 
     const [data, total] = await Promise.all([
       this.prisma.liveSession.findMany({
         where,
         include: {
-          course: true,
-          teacher: { include: { user: { select: { firstName: true, lastName: true, email: true } } } },
+          course: { select: { id: true, title: true } },
+          teacher: { include: { user: { select: { firstName: true, lastName: true } } } },
+          _count: { select: { attendances: true } },
         },
         take: limit,
         skip: offset,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [
+          { status: 'asc' },
+          { scheduledAt: 'asc' },
+          { createdAt: 'desc' },
+        ],
       }),
       this.prisma.liveSession.count({ where }),
     ]);
@@ -39,16 +51,23 @@ export class LiveSessionsService {
     const session = await this.prisma.liveSession.findUnique({
       where: { id },
       include: {
-        course: true,
+        course: { select: { id: true, title: true } },
         teacher: { include: { user: { select: { firstName: true, lastName: true, email: true } } } },
-        attendances: true,
+        attendances: {
+          include: {
+            student: { include: { user: { select: { firstName: true, lastName: true } } } },
+          },
+        },
       },
     });
     if (!session) throw new NotFoundException(`Live session ${id} not found`);
     return session;
   }
 
-  async create(dto: { title: string; courseId: string; scheduledAt?: Date }, teacherId: string) {
+  async create(
+    dto: { title: string; courseId: string; scheduledAt?: string | Date },
+    teacherId: string,
+  ) {
     return this.prisma.liveSession.create({
       data: {
         title: dto.title,
@@ -56,10 +75,10 @@ export class LiveSessionsService {
         teacherId,
         roomId: randomUUID(),
         status: 'SCHEDULED',
-        startedAt: dto.scheduledAt ?? null,
+        scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
       },
       include: {
-        course: true,
+        course: { select: { id: true, title: true } },
         teacher: { include: { user: { select: { firstName: true, lastName: true } } } },
       },
     });
@@ -68,13 +87,21 @@ export class LiveSessionsService {
   async startSession(id: string, teacherId: string) {
     const session = await this.prisma.liveSession.findFirst({ where: { id, teacherId } });
     if (!session) throw new NotFoundException(`Session ${id} not found or unauthorized`);
-    return this.prisma.liveSession.update({ where: { id }, data: { status: 'LIVE', startedAt: new Date() } });
+    if (session.status !== 'SCHEDULED') throw new ForbiddenException('Session is not in SCHEDULED status');
+    return this.prisma.liveSession.update({
+      where: { id },
+      data: { status: 'LIVE', startedAt: new Date() },
+    });
   }
 
   async endSession(id: string, teacherId: string) {
     const session = await this.prisma.liveSession.findFirst({ where: { id, teacherId } });
     if (!session) throw new NotFoundException(`Session ${id} not found or unauthorized`);
-    return this.prisma.liveSession.update({ where: { id }, data: { status: 'ENDED', endedAt: new Date() } });
+    if (session.status !== 'LIVE') throw new ForbiddenException('Session is not LIVE');
+    return this.prisma.liveSession.update({
+      where: { id },
+      data: { status: 'ENDED', endedAt: new Date() },
+    });
   }
 
   async joinSession(id: string, studentId: string) {
@@ -87,6 +114,6 @@ export class LiveSessionsService {
       create: { sessionId: id, studentId, joinedAt: new Date() },
     });
 
-    return { session, attendance };
+    return { session, attendance, roomId: session.roomId };
   }
 }
