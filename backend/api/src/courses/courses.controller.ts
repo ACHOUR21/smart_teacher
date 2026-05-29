@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { CoursesService } from './courses.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -79,5 +79,78 @@ export class CoursesController {
   @Get(':courseId/progress')
   getCourseProgress(@Param('courseId') courseId: string, @CurrentUser() user: any) {
     return this.svc.getCourseProgress(courseId, user.studentProfile?.id ?? user.id);
+  }
+
+  // Chapter CRUD
+  @Post(':courseId/chapters')
+  @UseGuards(RolesGuard)
+  @Roles('TEACHER', 'ADMIN')
+  createChapter(
+    @Param('courseId') courseId: string,
+    @Body() dto: any,
+    @CurrentUser() user: any,
+  ) {
+    return this.svc.createChapter(courseId, dto, user.teacherProfile?.id ?? user.id);
+  }
+
+  @Patch(':courseId/chapters/:chapterId')
+  @UseGuards(RolesGuard)
+  @Roles('TEACHER', 'ADMIN')
+  updateChapter(
+    @Param('courseId') courseId: string,
+    @Param('chapterId') chapterId: string,
+    @Body() dto: any,
+    @CurrentUser() user: any,
+  ) {
+    return this.svc.updateChapter(courseId, chapterId, dto, user.teacherProfile?.id ?? user.id);
+  }
+
+  @Delete(':courseId/chapters/:chapterId')
+  @UseGuards(RolesGuard)
+  @Roles('TEACHER', 'ADMIN')
+  deleteChapter(
+    @Param('courseId') courseId: string,
+    @Param('chapterId') chapterId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.svc.deleteChapter(courseId, chapterId, user.teacherProfile?.id ?? user.id);
+  }
+
+  // Lesson CRUD
+  @Post(':courseId/chapters/:chapterId/lessons')
+  @UseGuards(RolesGuard)
+  @Roles('TEACHER', 'ADMIN')
+  createLesson(
+    @Param('courseId') courseId: string,
+    @Param('chapterId') chapterId: string,
+    @Body() dto: any,
+    @CurrentUser() user: any,
+  ) {
+    return this.svc.createLesson(courseId, chapterId, dto, user.teacherProfile?.id ?? user.id);
+  }
+
+  @Patch(':courseId/chapters/:chapterId/lessons/:lessonId')
+  @UseGuards(RolesGuard)
+  @Roles('TEACHER', 'ADMIN')
+  updateLesson(
+    @Param('courseId') courseId: string,
+    @Param('chapterId') chapterId: string,
+    @Param('lessonId') lessonId: string,
+    @Body() dto: any,
+    @CurrentUser() user: any,
+  ) {
+    return this.svc.updateLesson(courseId, chapterId, lessonId, dto, user.teacherProfile?.id ?? user.id);
+  }
+
+  @Delete(':courseId/chapters/:chapterId/lessons/:lessonId')
+  @UseGuards(RolesGuard)
+  @Roles('TEACHER', 'ADMIN')
+  deleteLesson(
+    @Param('courseId') courseId: string,
+    @Param('chapterId') chapterId: string,
+    @Param('lessonId') lessonId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.svc.deleteLesson(courseId, chapterId, lessonId, user.teacherProfile?.id ?? user.id);
   }
 }

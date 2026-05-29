@@ -81,6 +81,20 @@ export const coursesApi = {
   completeLesson: (courseId: string, lessonId: string) =>
     api.post(`/courses/${courseId}/lessons/${lessonId}/complete`),
   getCourseProgress: (courseId: string) => api.get(`/courses/${courseId}/progress`),
+  // Chapter CRUD
+  createChapter: (courseId: string, data: any) =>
+    api.post(`/courses/${courseId}/chapters`, data),
+  updateChapter: (courseId: string, chapterId: string, data: any) =>
+    api.patch(`/courses/${courseId}/chapters/${chapterId}`, data),
+  deleteChapter: (courseId: string, chapterId: string) =>
+    api.delete(`/courses/${courseId}/chapters/${chapterId}`),
+  // Lesson CRUD
+  createLesson: (courseId: string, chapterId: string, data: any) =>
+    api.post(`/courses/${courseId}/chapters/${chapterId}/lessons`, data),
+  updateLesson: (courseId: string, chapterId: string, lessonId: string, data: any) =>
+    api.patch(`/courses/${courseId}/chapters/${chapterId}/lessons/${lessonId}`, data),
+  deleteLesson: (courseId: string, chapterId: string, lessonId: string) =>
+    api.delete(`/courses/${courseId}/chapters/${chapterId}/lessons/${lessonId}`),
 };
 
 export const usersApi = {

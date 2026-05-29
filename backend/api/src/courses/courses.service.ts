@@ -206,4 +206,119 @@ export class CoursesService {
       percentage: totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0,
     };
   }
+
+  async createChapter(courseId: string, dto: { title: string; order?: number }, teacherId: string) {
+    const course = await this.prisma.course.findUnique({ where: { id: courseId } });
+    if (!course) throw new NotFoundException(`Course ${courseId} not found`);
+    if (course.teacherId !== teacherId) throw new ForbiddenException();
+    const count = await this.prisma.chapter.count({ where: { courseId } });
+    const chapter = await this.prisma.chapter.create({
+      data: { courseId, title: dto.title, order: dto.order ?? count + 1 },
+      include: { lessons: true },
+    });
+    this.cache.del(`courses:one:${courseId}`);
+    this.cache.delByPrefix('courses:teacher');
+    return chapter;
+  }
+
+  async updateChapter(
+    courseId: string,
+    chapterId: string,
+    dto: { title?: string; order?: number },
+    teacherId: string,
+  ) {
+    const chapter = await this.prisma.chapter.findFirst({ where: { id: chapterId, courseId } });
+    if (!chapter) throw new NotFoundException('Chapter not found');
+    const course = await this.prisma.course.findUnique({ where: { id: courseId } });
+    if (!course || course.teacherId !== teacherId) throw new ForbiddenException();
+    const data: any = {};
+    if (dto.title !== undefined) data.title = dto.title;
+    if (dto.order !== undefined) data.order = dto.order;
+    const updated = await this.prisma.chapter.update({ where: { id: chapterId }, data });
+    this.cache.del(`courses:one:${courseId}`);
+    return updated;
+  }
+
+  async deleteChapter(courseId: string, chapterId: string, teacherId: string) {
+    const chapter = await this.prisma.chapter.findFirst({ where: { id: chapterId, courseId } });
+    if (!chapter) throw new NotFoundException('Chapter not found');
+    const course = await this.prisma.course.findUnique({ where: { id: courseId } });
+    if (!course || course.teacherId !== teacherId) throw new ForbiddenException();
+    // Delete lesson progress and lessons before deleting chapter to avoid FK violations
+    const lessons = await this.prisma.lesson.findMany({
+      where: { chapterId },
+      select: { id: true },
+    });
+    const lessonIds = lessons.map((l) => l.id);
+    if (lessonIds.length > 0) {
+      await this.prisma.lessonProgress.deleteMany({ where: { lessonId: { in: lessonIds } } });
+      await this.prisma.lesson.deleteMany({ where: { chapterId } });
+    }
+    await this.prisma.chapter.delete({ where: { id: chapterId } });
+    this.cache.del(`courses:one:${courseId}`);
+    this.cache.delByPrefix('courses:teacher');
+  }
+
+  async createLesson(
+    courseId: string,
+    chapterId: string,
+    dto: any,
+    teacherId: string,
+  ) {
+    const chapter = await this.prisma.chapter.findFirst({ where: { id: chapterId, courseId } });
+    if (!chapter) throw new NotFoundException('Chapter not found in this course');
+    const course = await this.prisma.course.findUnique({ where: { id: courseId } });
+    if (!course || course.teacherId !== teacherId) throw new ForbiddenException();
+    const count = await this.prisma.lesson.count({ where: { chapterId } });
+    const lesson = await this.prisma.lesson.create({
+      data: {
+        chapterId,
+        title: dto.title,
+        type: dto.type ?? 'VIDEO',
+        content: dto.content ?? null,
+        videoUrl: dto.videoUrl ?? null,
+        durationMins: dto.durationMins ?? null,
+        order: dto.order ?? count + 1,
+      },
+    });
+    this.cache.del(`courses:one:${courseId}`);
+    return lesson;
+  }
+
+  async updateLesson(
+    courseId: string,
+    chapterId: string,
+    lessonId: string,
+    dto: any,
+    teacherId: string,
+  ) {
+    const lesson = await this.prisma.lesson.findFirst({ where: { id: lessonId, chapterId } });
+    if (!lesson) throw new NotFoundException('Lesson not found');
+    const course = await this.prisma.course.findUnique({ where: { id: courseId } });
+    if (!course || course.teacherId !== teacherId) throw new ForbiddenException();
+    const data: any = {};
+    if (dto.title !== undefined) data.title = dto.title;
+    if (dto.type !== undefined) data.type = dto.type;
+    if (dto.content !== undefined) data.content = dto.content;
+    if (dto.videoUrl !== undefined) data.videoUrl = dto.videoUrl;
+    if (dto.durationMins !== undefined) data.durationMins = dto.durationMins;
+    const updated = await this.prisma.lesson.update({ where: { id: lessonId }, data });
+    this.cache.del(`courses:one:${courseId}`);
+    return updated;
+  }
+
+  async deleteLesson(
+    courseId: string,
+    chapterId: string,
+    lessonId: string,
+    teacherId: string,
+  ) {
+    const lesson = await this.prisma.lesson.findFirst({ where: { id: lessonId, chapterId } });
+    if (!lesson) throw new NotFoundException('Lesson not found');
+    const course = await this.prisma.course.findUnique({ where: { id: courseId } });
+    if (!course || course.teacherId !== teacherId) throw new ForbiddenException();
+    await this.prisma.lessonProgress.deleteMany({ where: { lessonId } });
+    await this.prisma.lesson.delete({ where: { id: lessonId } });
+    this.cache.del(`courses:one:${courseId}`);
+  }
 }
