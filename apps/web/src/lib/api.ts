@@ -137,3 +137,17 @@ export const analyticsApi = {
   admin: () => api.get('/analytics/admin'),
   student: () => api.get('/analytics/student'),
 };
+
+export const messagesApi = {
+  getConversations: () => api.get('/messages/conversations'),
+  getOrCreate: (userId: string) => api.post('/messages/conversations', { userId }),
+  getMessages: (conversationId: string, params?: any) =>
+    api.get(`/messages/conversations/${conversationId}`, { params }),
+  send: (conversationId: string, content: string) =>
+    api.post(`/messages/conversations/${conversationId}/messages`, { content }),
+};
+
+export const searchApi = {
+  search: (q: string, type?: string) =>
+    api.get('/search', { params: { q, type } }),
+};

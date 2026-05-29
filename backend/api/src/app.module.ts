@@ -14,6 +14,8 @@ import { AIModule } from './ai/ai.module';
 import { WebsocketModule } from './websocket/websocket.module';
 import { EmailModule } from './email/email.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { MessagesModule } from './messages/messages.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
@@ -31,6 +33,8 @@ import { AnalyticsModule } from './analytics/analytics.module';
     AIModule,
     WebsocketModule,
     AnalyticsModule,
+    MessagesModule,
+    SearchModule,
   ],
   controllers: [AppController],
 })
