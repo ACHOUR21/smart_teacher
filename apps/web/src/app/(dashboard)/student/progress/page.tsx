@@ -23,6 +23,8 @@ const BADGES = [
   { name: 'Perfect Score', icon: Target, desc: 'Score 100% on any assignment', color: 'from-slate-300 to-slate-400' },
 ]
 
+const PROGRESS_COLORS = ['#3b82f6', '#8b5cf6', '#f43f5e', '#f59e0b', '#10b981', '#14b8a6']
+
 interface StudentStats {
   enrollments: number
   completedLessons: number
@@ -31,19 +33,53 @@ interface StudentStats {
   recentScores: Array<{ score: number | null; date: string }>
 }
 
+interface CourseProgress {
+  courseId: string
+  totalLessons: number
+  completedLessons: number
+  percentage: number
+}
+
 export default function StudentProgressPage() {
   const [stats, setStats] = useState<StudentStats | null>(null)
   const [enrollments, setEnrollments] = useState<any[]>([])
+  const [courseProgress, setCourseProgress] = useState<Record<string, CourseProgress>>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     Promise.allSettled([
       analyticsApi.student().then((r) => setStats(r.data)),
-      coursesApi.getMyEnrollments().then((r) => setEnrollments(r.data?.slice(0, 6) ?? [])),
-    ]).finally(() => setLoading(false))
+      coursesApi.getMyEnrollments().then((r) => {
+        const enrs = r.data?.slice(0, 6) ?? []
+        setEnrollments(enrs)
+        return enrs
+      }),
+    ]).then((results) => {
+      const enrollResult = results[1]
+      if (enrollResult.status === 'fulfilled') {
+        const enrs = enrollResult.value as any[]
+        // Fetch per-course progress in parallel
+        Promise.allSettled(
+          enrs.map((enr: any) => {
+            const courseId = enr.course?.id ?? enr.courseId ?? enr.id
+            return coursesApi.getCourseProgress(courseId).then((r) => ({
+              courseId,
+              ...r.data,
+            } as CourseProgress))
+          })
+        ).then((progressResults) => {
+          const map: Record<string, CourseProgress> = {}
+          progressResults.forEach((res) => {
+            if (res.status === 'fulfilled') {
+              map[res.value.courseId] = res.value
+            }
+          })
+          setCourseProgress(map)
+        })
+      }
+    }).finally(() => setLoading(false))
   }, [])
 
-  // Build grade trend from recent scores
   const gradeTrend = stats?.recentScores?.length
     ? stats.recentScores.slice().reverse().map((s, i) => ({
         label: `#${i + 1}`,
@@ -155,15 +191,22 @@ export default function StudentProgressPage() {
             <div className="space-y-4">
               {enrollments.map((enr: any, i: number) => {
                 const c = enr.course ?? enr
-                const colors = ['#3b82f6', '#8b5cf6', '#f43f5e', '#f59e0b', '#10b981', '#14b8a6']
-                const color = colors[i % colors.length]
+                const courseId = c.id
+                const color = PROGRESS_COLORS[i % PROGRESS_COLORS.length]
+                const prog = courseProgress[courseId]
+                const pct = prog?.percentage ?? 0
                 return (
-                  <div key={c.id} className="flex items-center gap-4">
+                  <div key={courseId} className="flex items-center gap-4">
                     <span className="text-sm text-slate-600 dark:text-slate-400 w-36 flex-shrink-0 truncate">{c.title}</span>
                     <div className="flex-1 h-3 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all" style={{ width: '45%', background: color }} />
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{ width: `${pct}%`, background: color }}
+                      />
                     </div>
-                    <span className="text-xs font-semibold text-slate-500 w-10 text-right">45%</span>
+                    <span className="text-xs font-semibold text-slate-500 w-10 text-right">
+                      {prog ? `${pct}%` : '…'}
+                    </span>
                   </div>
                 )
               })}
