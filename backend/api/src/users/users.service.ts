@@ -76,4 +76,58 @@ export class UsersService {
     ]);
     return { total, students, teachers, parents, activeToday };
   }
+
+  async getMyChildren(userId: string) {
+    const parent = await this.prisma.parent.findUnique({
+      where: { userId },
+      include: {
+        children: {
+          include: {
+            student: {
+              include: {
+                user: {
+                  select: {
+                    id: true, firstName: true, lastName: true,
+                    avatarUrl: true, email: true,
+                  },
+                },
+                enrollments: {
+                  include: {
+                    course: { select: { id: true, title: true, category: true } },
+                  },
+                },
+                submissions: {
+                  where: { status: 'GRADED' },
+                  include: {
+                    assignment: {
+                      include: {
+                        course: { select: { id: true, title: true, category: true } },
+                      },
+                    },
+                  },
+                  orderBy: { submittedAt: 'desc' },
+                  take: 50,
+                },
+                attendances: {
+                  include: {
+                    session: {
+                      select: {
+                        id: true, title: true, scheduledAt: true,
+                        startedAt: true, status: true,
+                      },
+                    },
+                  },
+                  orderBy: { joinedAt: 'desc' },
+                  take: 20,
+                },
+                _count: { select: { enrollments: true, submissions: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!parent) return [];
+    return parent.children.map((ps) => ps.student);
+  }
 }

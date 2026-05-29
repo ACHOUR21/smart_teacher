@@ -104,6 +104,7 @@ export const usersApi = {
   setActive: (id: string, isActive: boolean) =>
     api.patch(`/users/${id}/status`, { isActive }),
   getStats: () => api.get('/users/stats'),
+  getMyChildren: () => api.get('/users/my-children'),
 };
 
 export const assignmentsApi = {
@@ -150,6 +151,7 @@ export const analyticsApi = {
   teacher: () => api.get('/analytics/teacher'),
   admin: () => api.get('/analytics/admin'),
   student: () => api.get('/analytics/student'),
+  auditLogs: (params?: any) => api.get('/analytics/audit-logs', { params }),
 };
 
 export const messagesApi = {

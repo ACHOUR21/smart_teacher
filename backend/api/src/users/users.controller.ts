@@ -28,11 +28,19 @@ export class UsersController {
     return this.svc.findAll({ role, search, limit: limit ? +limit : 20, offset: offset ? +offset : 0 });
   }
 
+  // Static routes must come before :id
   @Get('stats')
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
   getStats() {
     return this.svc.getStats();
+  }
+
+  @Get('my-children')
+  @UseGuards(RolesGuard)
+  @Roles('PARENT')
+  getMyChildren(@CurrentUser() user: any) {
+    return this.svc.getMyChildren(user.id);
   }
 
   @Get(':id')
