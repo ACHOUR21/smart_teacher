@@ -25,14 +25,38 @@ export default function StudentDashboard() {
   const [stats, setStats] = useState<StudentStats | null>(null)
   const [courses, setCourses] = useState<any[]>([])
   const [assignments, setAssignments] = useState<any[]>([])
+  const [courseProgress, setCourseProgress] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     Promise.allSettled([
       analyticsApi.student().then((r) => setStats(r.data)),
-      coursesApi.getMyEnrollments().then((r) => setCourses(r.data?.slice(0, 3) ?? [])),
-      assignmentsApi.getMyAssignments().then((r) => setAssignments(r.data?.slice(0, 3) ?? [])),
-    ]).finally(() => setLoading(false))
+      coursesApi.getMyEnrollments().then((r) => {
+        const enrs = Array.isArray(r.data) ? r.data : (r.data?.data ?? [])
+        const top3 = enrs.slice(0, 3)
+        setCourses(top3)
+        return top3
+      }),
+      assignmentsApi.getMyAssignments().then((r) => {
+        const list = Array.isArray(r.data) ? r.data : (r.data?.data ?? [])
+        setAssignments(list.slice(0, 3))
+      }),
+    ]).then(([, enrResult]) => {
+      if (enrResult.status === 'fulfilled') {
+        const top3 = enrResult.value as any[]
+        const ids = top3.map((e: any) => (e.course ?? e).id).filter(Boolean)
+        Promise.allSettled(ids.map((id: string) => coursesApi.getCourseProgress(id))).then((results) => {
+          const map: Record<string, number> = {}
+          results.forEach((r, i) => {
+            if (r.status === 'fulfilled') {
+              const d = r.value.data?.data ?? r.value.data
+              map[ids[i]] = d?.percentage ?? 0
+            }
+          })
+          setCourseProgress(map)
+        })
+      }
+    }).finally(() => setLoading(false))
   }, [])
 
   const firstName = user?.firstName ?? 'there'
@@ -68,6 +92,12 @@ export default function StudentDashboard() {
     },
   ]
 
+  const COLORS = [
+    'from-blue-500 to-cyan-400',
+    'from-violet-500 to-purple-400',
+    'from-rose-500 to-pink-400',
+  ]
+
   return (
     <div className="flex flex-col min-h-full">
       <div className="flex-1 p-6 space-y-6">
@@ -78,7 +108,6 @@ export default function StudentDashboard() {
           <p className="text-sm text-gray-500 mt-0.5">Here's your learning snapshot for today.</p>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           {statCards.map((s) => (
             <motion.div
@@ -119,30 +148,32 @@ export default function StudentDashboard() {
               </div>
             ) : (
               <div className="space-y-4">
-                {courses.map((enr: any) => {
+                {courses.map((enr: any, idx: number) => {
                   const c = enr.course ?? enr
-                  const colors = [
-                    'from-blue-500 to-cyan-400',
-                    'from-violet-500 to-purple-400',
-                    'from-rose-500 to-pink-400',
-                  ]
-                  const colorIdx = c.title?.charCodeAt(0) % colors.length
+                  const colorClass = COLORS[idx % COLORS.length]
+                  const pct = courseProgress[c.id] ?? 0
                   return (
                     <div key={c.id} className="group">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2.5">
-                          <div className={`w-2 h-2 rounded-full bg-gradient-to-br ${colors[colorIdx]}`} />
+                          <div className={`w-2 h-2 rounded-full bg-gradient-to-br ${colorClass}`} />
                           <span className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate max-w-[180px]">{c.title}</span>
                         </div>
-                        <Link
-                          href={`/student/courses/${c.id}`}
-                          className="opacity-0 group-hover:opacity-100 flex items-center gap-1 px-2.5 py-1 bg-primary-50 text-primary-700 text-xs font-medium rounded-lg transition-opacity"
-                        >
-                          <Play className="w-3 h-3" fill="currentColor" /> Continue
-                        </Link>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-400">{pct}%</span>
+                          <Link
+                            href={`/student/courses/${c.id}`}
+                            className="opacity-0 group-hover:opacity-100 flex items-center gap-1 px-2.5 py-1 bg-primary-50 text-primary-700 text-xs font-medium rounded-lg transition-opacity"
+                          >
+                            <Play className="w-3 h-3" fill="currentColor" /> Continue
+                          </Link>
+                        </div>
                       </div>
                       <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                        <div className={`h-full bg-gradient-to-r ${colors[colorIdx]} rounded-full`} style={{ width: '45%' }} />
+                        <div
+                          className={`h-full bg-gradient-to-r ${colorClass} rounded-full transition-all duration-700`}
+                          style={{ width: `${pct}%` }}
+                        />
                       </div>
                     </div>
                   )
