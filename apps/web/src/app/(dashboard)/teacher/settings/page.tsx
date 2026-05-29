@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User, Bell, Shield, Palette, Save, Camera } from 'lucide-react';
+import { User, Bell, Shield, Palette, Save, Camera, Loader2 } from 'lucide-react';
+import { authApi, usersApi } from '@/lib/api';
+import { toast } from 'sonner';
 
 const profileSchema = z.object({
   firstName: z.string().min(1, 'Required'),
@@ -44,7 +46,9 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 
 export default function TeacherSettingsPage() {
   const [activeTab, setActiveTab] = useState('profile');
-  const [saved, setSaved] = useState(false);
+  const [userId, setUserId] = useState('');
+  const [loadingUser, setLoadingUser] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [notifs, setNotifs] = useState({
     newSubmission: true,
     parentMessage: true,
@@ -53,23 +57,43 @@ export default function TeacherSettingsPage() {
     systemAlerts: true,
   });
 
-  const { register, handleSubmit, formState: { errors } } = useForm<ProfileForm>({
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
-    defaultValues: {
-      firstName: 'Ahmed',
-      lastName: 'Al-Rashid',
-      email: 'ahmed@school.edu',
-      phone: '+1 555-0142',
-      bio: 'Mathematics teacher with 10 years of experience in advanced calculus and physics.',
-      subject: 'Mathematics',
-      department: 'STEM',
-    },
+    defaultValues: { firstName: '', lastName: '', email: '', phone: '', bio: '', subject: '', department: '' },
   });
 
-  function onSave() {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  useEffect(() => {
+    authApi.me().then((r) => {
+      const u = r.data?.data ?? r.data;
+      setUserId(u.id);
+      reset({
+        firstName: u.firstName ?? '',
+        lastName: u.lastName ?? '',
+        email: u.email ?? '',
+        phone: '',
+        bio: '',
+        subject: '',
+        department: '',
+      });
+    }).catch(() => {}).finally(() => setLoadingUser(false));
+  }, [reset]);
+
+  async function onSave(data: ProfileForm) {
+    if (!userId) return;
+    setSaving(true);
+    try {
+      await usersApi.update(userId, { firstName: data.firstName, lastName: data.lastName });
+      toast.success('Profile saved!');
+    } catch {
+      toast.error('Failed to save profile');
+    } finally {
+      setSaving(false);
+    }
   }
+
+  const firstName = watch('firstName');
+  const lastName = watch('lastName');
+  const initials = firstName && lastName ? (firstName[0] + lastName[0]).toUpperCase() : '?';
 
   return (
     <div className="space-y-6">
@@ -98,49 +122,82 @@ export default function TeacherSettingsPage() {
       {activeTab === 'profile' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
-            <div className="flex items-center gap-5 mb-6">
-              <div className="relative">
-                <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-2xl font-bold">
-                  AR
-                </div>
-                <button className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-primary-600 text-white flex items-center justify-center shadow-md">
-                  <Camera className="h-3.5 w-3.5" />
-                </button>
+            {loadingUser ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
               </div>
-              <div>
-                <p className="font-semibold text-slate-900 dark:text-white">Ahmed Al-Rashid</p>
-                <p className="text-sm text-slate-500">Mathematics Teacher · STEM Department</p>
-              </div>
-            </div>
-
-            <form onSubmit={handleSubmit(onSave)} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {([['firstName', 'First Name'], ['lastName', 'Last Name'], ['email', 'Email'], ['phone', 'Phone'], ['subject', 'Subject'], ['department', 'Department']] as const).map(([field, label]) => (
-                  <div key={field}>
-                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">{label}</label>
-                    <input
-                      {...register(field)}
-                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
-                    />
-                    {errors[field] && <p className="text-xs text-red-500 mt-1">{errors[field]?.message}</p>}
+            ) : (
+              <>
+                <div className="flex items-center gap-5 mb-6">
+                  <div className="relative">
+                    <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-2xl font-bold">
+                      {initials}
+                    </div>
+                    <button className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-primary-600 text-white flex items-center justify-center shadow-md">
+                      <Camera className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                ))}
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Bio</label>
-                <textarea
-                  {...register('bio')}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 resize-none"
-                />
-              </div>
-              <div className="flex justify-end">
-                <button type="submit" className="flex items-center gap-2 px-5 py-2 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors">
-                  <Save className="h-4 w-4" />
-                  {saved ? 'Saved!' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
+                  <div>
+                    <p className="font-semibold text-slate-900 dark:text-white">
+                      {[firstName, lastName].filter(Boolean).join(' ') || 'Loading…'}
+                    </p>
+                    <p className="text-sm text-slate-500">Teacher</p>
+                  </div>
+                </div>
+
+                <form onSubmit={handleSubmit(onSave)} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {(['firstName', 'lastName'] as const).map((field) => (
+                      <div key={field}>
+                        <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">
+                          {field === 'firstName' ? 'First Name' : 'Last Name'}
+                        </label>
+                        <input
+                          {...register(field)}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
+                        />
+                        {errors[field] && <p className="text-xs text-red-500 mt-1">{errors[field]?.message}</p>}
+                      </div>
+                    ))}
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Email</label>
+                      <input
+                        {...register('email')}
+                        readOnly
+                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed"
+                      />
+                    </div>
+                    {(['subject', 'department', 'phone'] as const).map((field) => (
+                      <div key={field}>
+                        <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 capitalize">{field}</label>
+                        <input
+                          {...register(field)}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Bio</label>
+                    <textarea
+                      {...register('bio')}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 resize-none"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="flex items-center gap-2 px-5 py-2 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors disabled:opacity-60"
+                    >
+                      {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                      {saving ? 'Saving…' : 'Save Changes'}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
           </div>
         </motion.div>
       )}
@@ -204,8 +261,8 @@ export default function TeacherSettingsPage() {
               <p className="text-sm font-medium text-slate-900 dark:text-white mb-3">Language</p>
               <select className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
                 <option>English</option>
-                <option>العربية</option>
-                <option>Français</option>
+                <option>&#1575;&#1604;&#1593;&#1585;&#1576;&#1610;&#1577;</option>
+                <option>Fran&#231;ais</option>
               </select>
             </div>
           </div>
