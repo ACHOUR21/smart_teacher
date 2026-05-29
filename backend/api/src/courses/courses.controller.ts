@@ -65,4 +65,19 @@ export class CoursesController {
   enroll(@Param('id') courseId: string, @CurrentUser() user: any) {
     return this.svc.enroll(courseId, user.studentProfile?.id ?? user.id);
   }
+
+  // Lesson progress tracking
+  @Post(':courseId/lessons/:lessonId/complete')
+  completeLesson(
+    @Param('courseId') courseId: string,
+    @Param('lessonId') lessonId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.svc.completeLesson(courseId, lessonId, user.studentProfile?.id ?? user.id);
+  }
+
+  @Get(':courseId/progress')
+  getCourseProgress(@Param('courseId') courseId: string, @CurrentUser() user: any) {
+    return this.svc.getCourseProgress(courseId, user.studentProfile?.id ?? user.id);
+  }
 }

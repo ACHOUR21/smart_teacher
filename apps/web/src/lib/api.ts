@@ -78,6 +78,9 @@ export const coursesApi = {
   enroll: (id: string) => api.post(`/courses/${id}/enroll`),
   getMyEnrollments: () => api.get('/courses/my-enrollments'),
   getMyTeacherCourses: () => api.get('/courses/my-courses'),
+  completeLesson: (courseId: string, lessonId: string) =>
+    api.post(`/courses/${courseId}/lessons/${lessonId}/complete`),
+  getCourseProgress: (courseId: string) => api.get(`/courses/${courseId}/progress`),
 };
 
 export const usersApi = {

@@ -118,6 +118,7 @@ export class CoursesService {
       data: { courseId, studentId, enrolledAt: new Date() },
     });
     this.cache.del(`courses:one:${courseId}`);
+    this.cache.del(`enrollments:student:${studentId}`);
     return enrollment;
   }
 
@@ -154,5 +155,57 @@ export class CoursesService {
         }),
       60_000,
     );
+  }
+
+  async completeLesson(courseId: string, lessonId: string, studentId: string) {
+    // Verify lesson belongs to the course
+    const lesson = await this.prisma.lesson.findFirst({
+      where: { id: lessonId, chapter: { courseId } },
+    });
+    if (!lesson) throw new NotFoundException('Lesson not found in this course');
+
+    const progress = await this.prisma.lessonProgress.upsert({
+      where: { lessonId_studentId: { lessonId, studentId } },
+      create: { lessonId, studentId, completed: true, completedAt: new Date() },
+      update: { completed: true, completedAt: new Date() },
+    });
+
+    // Invalidate student analytics cache
+    this.cache.delByPrefix('analytics:student');
+    return progress;
+  }
+
+  async getCourseProgress(courseId: string, studentId: string) {
+    const course = await this.prisma.course.findUnique({
+      where: { id: courseId },
+      include: {
+        chapters: {
+          include: {
+            lessons: {
+              include: {
+                progress: { where: { studentId } },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!course) throw new NotFoundException('Course not found');
+
+    let totalLessons = 0;
+    let completedLessons = 0;
+    for (const chapter of course.chapters) {
+      for (const lesson of chapter.lessons) {
+        totalLessons++;
+        if (lesson.progress.some((p) => p.completed)) completedLessons++;
+      }
+    }
+
+    return {
+      courseId,
+      totalLessons,
+      completedLessons,
+      percentage: totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0,
+    };
   }
 }
