@@ -130,4 +130,79 @@ export class UsersService {
     if (!parent) return [];
     return parent.children.map((ps) => ps.student);
   }
+
+  async getChildrenSchedule(userId: string) {
+    const parent = await this.prisma.parent.findUnique({
+      where: { userId },
+      include: {
+        children: {
+          include: {
+            student: {
+              include: {
+                user: {
+                  select: { id: true, firstName: true, lastName: true, avatarUrl: true },
+                },
+                enrollments: {
+                  include: {
+                    course: {
+                      include: {
+                        liveSessions: {
+                          where: { status: { in: ['SCHEDULED', 'LIVE'] } },
+                          include: {
+                            teacher: {
+                              include: {
+                                user: { select: { firstName: true, lastName: true } },
+                              },
+                            },
+                          },
+                          orderBy: { scheduledAt: 'asc' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!parent) return [];
+
+    const seen = new Set<string>();
+    const sessions: any[] = [];
+
+    for (const ps of parent.children) {
+      const { student } = ps;
+      const childName = `${student.user.firstName} ${student.user.lastName}`;
+      for (const enrollment of student.enrollments) {
+        for (const session of enrollment.course.liveSessions) {
+          const key = `${session.id}:${student.id}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          sessions.push({
+            id: session.id,
+            title: session.title,
+            courseName: enrollment.course.title,
+            status: session.status,
+            scheduledAt: session.scheduledAt,
+            startedAt: session.startedAt,
+            roomId: session.roomId,
+            teacherName: `${session.teacher.user.firstName} ${session.teacher.user.lastName}`,
+            childName,
+            childId: student.id,
+          });
+        }
+      }
+    }
+
+    sessions.sort((a, b) => {
+      if (!a.scheduledAt) return 1;
+      if (!b.scheduledAt) return -1;
+      return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
+    });
+
+    return sessions;
+  }
 }

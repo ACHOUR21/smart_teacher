@@ -1,92 +1,152 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Clock, MapPin, User } from 'lucide-react';
+import { Clock, User, Video, CalendarDays } from 'lucide-react';
+import { usersApi } from '@/lib/api';
 
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
-const events: Record<string, { name: string; child: string; teacher: string; room: string; time: string; color: string }[]> = {
-  Mon: [
-    { name: 'Advanced Math', child: 'Layla', teacher: 'Mr. Al-Rashid', room: 'Room 204', time: '8:00 – 9:30', color: 'bg-blue-100 border-blue-400 dark:bg-blue-900/30 dark:border-blue-500' },
-    { name: 'Mathematics', child: 'Omar', teacher: 'Ms. Thompson', room: 'Room 108', time: '9:00 – 10:00', color: 'bg-purple-100 border-purple-400 dark:bg-purple-900/30 dark:border-purple-500' },
-    { name: 'English Lit', child: 'Layla', teacher: 'Mrs. Davis', room: 'Room 312', time: '10:00 – 11:30', color: 'bg-green-100 border-green-400 dark:bg-green-900/30 dark:border-green-500' },
-  ],
-  Tue: [
-    { name: 'Physics', child: 'Layla', teacher: 'Ms. Carter', room: 'Lab 3', time: '8:00 – 9:30', color: 'bg-amber-100 border-amber-400 dark:bg-amber-900/30 dark:border-amber-500' },
-    { name: 'Arabic Language', child: 'Omar', teacher: 'Ms. Khalil', room: 'Room 205', time: '10:00 – 11:00', color: 'bg-red-100 border-red-400 dark:bg-red-900/30 dark:border-red-500' },
-  ],
-  Wed: [
-    { name: 'Advanced Math', child: 'Layla', teacher: 'Mr. Al-Rashid', room: 'Room 204', time: '8:00 – 9:30', color: 'bg-blue-100 border-blue-400 dark:bg-blue-900/30 dark:border-blue-500' },
-    { name: 'Science', child: 'Omar', teacher: 'Mr. Patel', room: 'Lab 1', time: '9:00 – 10:30', color: 'bg-teal-100 border-teal-400 dark:bg-teal-900/30 dark:border-teal-500' },
-    { name: 'World History', child: 'Layla', teacher: 'Dr. Lee', room: 'Room 401', time: '11:00 – 12:30', color: 'bg-orange-100 border-orange-400 dark:bg-orange-900/30 dark:border-orange-500' },
-  ],
-  Thu: [
-    { name: 'Physics', child: 'Layla', teacher: 'Ms. Carter', room: 'Lab 3', time: '8:00 – 9:30', color: 'bg-amber-100 border-amber-400 dark:bg-amber-900/30 dark:border-amber-500' },
-    { name: 'Physical Education', child: 'Omar', teacher: 'Coach Rivera', room: 'Gym', time: '10:00 – 11:00', color: 'bg-green-100 border-green-400 dark:bg-green-900/30 dark:border-green-500' },
-  ],
-  Fri: [
-    { name: 'English Lit', child: 'Layla', teacher: 'Mrs. Davis', room: 'Room 312', time: '9:00 – 10:30', color: 'bg-green-100 border-green-400 dark:bg-green-900/30 dark:border-green-500' },
-    { name: 'Mathematics', child: 'Omar', teacher: 'Ms. Thompson', room: 'Room 108', time: '10:00 – 11:00', color: 'bg-purple-100 border-purple-400 dark:bg-purple-900/30 dark:border-purple-500' },
-  ],
+const STATUS_COLORS: Record<string, string> = {
+  LIVE: 'bg-red-100 border-red-400 dark:bg-red-900/30 dark:border-red-500',
+  SCHEDULED: 'bg-blue-100 border-blue-400 dark:bg-blue-900/30 dark:border-blue-500',
 };
+
+const CHILD_COLORS = [
+  'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400',
+  'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+];
 
 const today = new Date();
 
 export default function ParentSchedulePage() {
-  const [activeDay, setActiveDay] = useState(DAYS[today.getDay() === 0 || today.getDay() === 6 ? 0 : today.getDay() - 1]);
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeDay, setActiveDay] = useState(
+    WEEKDAYS[today.getDay() === 0 || today.getDay() === 6 ? 0 : today.getDay() - 1],
+  );
+
+  useEffect(() => {
+    usersApi
+      .getChildrenSchedule()
+      .then((r) => {
+        const data = r.data?.data ?? r.data;
+        setSessions(Array.isArray(data) ? data : []);
+      })
+      .catch(() => setSessions([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Group sessions by weekday abbreviation
+  const grouped: Record<string, any[]> = {};
+  for (const session of sessions) {
+    if (!session.scheduledAt) continue;
+    const dayName = DAY_NAMES[new Date(session.scheduledAt).getDay()];
+    if (dayName === 'Sun' || dayName === 'Sat') continue;
+    if (!grouped[dayName]) grouped[dayName] = [];
+    grouped[dayName].push(session);
+  }
+
+  // Stable color per child name
+  const childNames = [...new Set(sessions.map((s) => s.childName))];
+  const childColorMap: Record<string, string> = {};
+  childNames.forEach((name, i) => {
+    childColorMap[name as string] = CHILD_COLORS[i % CHILD_COLORS.length];
+  });
+
+  const dayEvents = grouped[activeDay] ?? [];
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Class Schedule</h1>
-        <p className="text-slate-500 dark:text-slate-400 mt-1">Weekly schedule for all your children</p>
+        <p className="text-slate-500 dark:text-slate-400 mt-1">Upcoming live sessions for your children</p>
       </div>
 
       {/* Day selector */}
       <div className="flex gap-2">
-        {DAYS.map(day => (
+        {WEEKDAYS.map((day) => (
           <button
             key={day}
             onClick={() => setActiveDay(day)}
-            className={`flex-1 py-3 rounded-2xl text-sm font-semibold transition-all ${
+            className={`flex-1 py-3 rounded-2xl text-sm font-semibold transition-all relative ${
               activeDay === day
                 ? 'bg-primary-600 text-white shadow-md'
                 : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-primary-300'
             }`}
           >
             {day}
+            {(grouped[day]?.length ?? 0) > 0 && (
+              <span
+                className={`absolute top-1 right-1.5 w-2 h-2 rounded-full ${
+                  activeDay === day ? 'bg-white/60' : 'bg-primary-500'
+                }`}
+              />
+            )}
           </button>
         ))}
       </div>
 
       {/* Events */}
       <div className="space-y-4">
-        {(events[activeDay] ?? []).length === 0 ? (
+        {loading ? (
+          [1, 2].map((n) => (
+            <div key={n} className="h-24 rounded-2xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
+          ))
+        ) : dayEvents.length === 0 ? (
           <div className="text-center py-16 text-slate-400">
-            <Clock className="h-10 w-10 mx-auto mb-3 opacity-40" />
-            <p className="text-sm">No classes scheduled</p>
+            <CalendarDays className="h-10 w-10 mx-auto mb-3 opacity-40" />
+            <p className="text-sm">No live sessions scheduled for {activeDay}</p>
+            {sessions.length === 0 && (
+              <p className="text-xs mt-1 opacity-70">No upcoming sessions found for your children</p>
+            )}
           </div>
         ) : (
-          (events[activeDay] ?? []).map((ev, i) => (
+          dayEvents.map((ev, i) => (
             <motion.div
-              key={i}
+              key={`${ev.id}-${i}`}
               initial={{ opacity: 0, x: -12 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.08 }}
-              className={`flex items-start gap-4 p-5 rounded-2xl border-l-4 ${ev.color}`}
+              className={`flex items-start gap-4 p-5 rounded-2xl border-l-4 ${
+                STATUS_COLORS[ev.status] ?? STATUS_COLORS.SCHEDULED
+              }`}
             >
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <p className="font-semibold text-slate-900 dark:text-white">{ev.name}</p>
-                  <span className="text-xs bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400 px-2 py-0.5 rounded-full font-medium">
-                    {ev.child}
+                  <p className="font-semibold text-slate-900 dark:text-white">{ev.title}</p>
+                  {ev.status === 'LIVE' && (
+                    <span className="text-xs bg-red-600 text-white px-2 py-0.5 rounded-full font-medium animate-pulse">
+                      LIVE
+                    </span>
+                  )}
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      childColorMap[ev.childName] ?? CHILD_COLORS[0]
+                    }`}
+                  >
+                    {ev.childName}
                   </span>
                 </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">{ev.courseName}</p>
                 <div className="flex flex-wrap gap-4 text-xs text-slate-500 dark:text-slate-400">
-                  <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{ev.time}</span>
-                  <span className="flex items-center gap-1"><User className="h-3 w-3" />{ev.teacher}</span>
-                  <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{ev.room}</span>
+                  {ev.scheduledAt && (
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {new Date(ev.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
+                  <span className="flex items-center gap-1">
+                    <User className="h-3 w-3" />{ev.teacherName}
+                  </span>
+                  {ev.status === 'LIVE' && (
+                    <span className="flex items-center gap-1 text-red-600 dark:text-red-400 font-medium">
+                      <Video className="h-3 w-3" /> Session in progress
+                    </span>
+                  )}
                 </div>
               </div>
             </motion.div>

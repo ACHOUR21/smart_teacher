@@ -43,6 +43,13 @@ export class UsersController {
     return this.svc.getMyChildren(user.id);
   }
 
+  @Get('my-children/schedule')
+  @UseGuards(RolesGuard)
+  @Roles('PARENT')
+  getChildrenSchedule(@CurrentUser() user: any) {
+    return this.svc.getChildrenSchedule(user.id);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.svc.findOne(id);

@@ -207,6 +207,60 @@ export class CoursesService {
     };
   }
 
+  async getMyCertificates(userId: string) {
+    const student = await this.prisma.student.findUnique({ where: { userId } });
+    if (!student) return [];
+
+    const enrollments = await this.prisma.enrollment.findMany({
+      where: { studentId: student.id },
+      include: {
+        course: {
+          include: {
+            chapters: {
+              include: {
+                lessons: {
+                  include: {
+                    progress: { where: { studentId: student.id } },
+                  },
+                },
+              },
+            },
+            teacher: {
+              include: { user: { select: { firstName: true, lastName: true } } },
+            },
+          },
+        },
+      },
+      orderBy: { enrolledAt: 'desc' },
+    });
+
+    return enrollments.map((enrollment) => {
+      const course = enrollment.course;
+      let totalLessons = 0;
+      let completedLessons = 0;
+      for (const chapter of course.chapters) {
+        for (const lesson of chapter.lessons) {
+          totalLessons++;
+          if (lesson.progress.some((p) => p.isCompleted)) completedLessons++;
+        }
+      }
+      const percentage = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+      const isCompleted = percentage === 100 && totalLessons > 0;
+      const teacherUser = course.teacher.user;
+      return {
+        courseId: course.id,
+        courseTitle: course.title,
+        category: course.category,
+        teacherName: `${teacherUser.firstName} ${teacherUser.lastName}`,
+        enrolledAt: enrollment.enrolledAt,
+        isCompleted,
+        percentage,
+        totalLessons,
+        completedLessons,
+      };
+    });
+  }
+
   async createChapter(courseId: string, dto: { title: string; order?: number }, teacherId: string) {
     const course = await this.prisma.course.findUnique({ where: { id: courseId } });
     if (!course) throw new NotFoundException(`Course ${courseId} not found`);
@@ -244,7 +298,6 @@ export class CoursesService {
     if (!chapter) throw new NotFoundException('Chapter not found');
     const course = await this.prisma.course.findUnique({ where: { id: courseId } });
     if (!course || course.teacherId !== teacherId) throw new ForbiddenException();
-    // Delete lesson progress and lessons before deleting chapter to avoid FK violations
     const lessons = await this.prisma.lesson.findMany({
       where: { chapterId },
       select: { id: true },

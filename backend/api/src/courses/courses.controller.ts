@@ -42,6 +42,11 @@ export class CoursesController {
     return this.svc.getMyTeacherCourses(user.teacherProfile?.id ?? user.id);
   }
 
+  @Get('my-certificates')
+  getMyCertificates(@CurrentUser() user: any) {
+    return this.svc.getMyCertificates(user.id);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.svc.findOne(id);
