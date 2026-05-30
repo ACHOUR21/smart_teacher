@@ -6,7 +6,7 @@ import {
   AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts'
-import { analyticsApi } from '@/lib/api'
+import { analyticsApi, subscriptionsApi } from '@/lib/api'
 
 const FALLBACK_USER_TREND = [
   { month: 'Oct', students: 8200, teachers: 320, parents: 4100 },
@@ -17,20 +17,12 @@ const FALLBACK_USER_TREND = [
   { month: 'Mar', students: 11800, teachers: 412, parents: 5900 },
 ]
 
-const REVENUE = [
-  { month: 'Oct', mrr: 31200 },
-  { month: 'Nov', mrr: 33800 },
-  { month: 'Dec', mrr: 35100 },
-  { month: 'Jan', mrr: 37500 },
-  { month: 'Feb', mrr: 39200 },
-  { month: 'Mar', mrr: 41800 },
-]
-
-const PLAN_DIST = [
-  { name: 'Free', value: 8241, color: '#94a3b8' },
-  { name: 'Pro', value: 3124, color: '#0c84e8' },
-  { name: 'Institution', value: 1118, color: '#00e88b' },
-]
+const PLAN_COLORS: Record<string, string> = {
+  Free: '#94a3b8',
+  Pro: '#0c84e8',
+  Institution: '#00e88b',
+}
+const PLAN_FALLBACK_COLORS = ['#94a3b8', '#0c84e8', '#00e88b', '#f59e0b']
 
 interface AdminStats {
   users: {
@@ -44,17 +36,25 @@ interface AdminStats {
 export default function AdminAnalyticsPage() {
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [subStats, setSubStats] = useState<{ byPlan: Record<string, number>; estimatedMRR: number } | null>(null)
 
   useEffect(() => {
     analyticsApi.admin()
       .then((res) => setStats(res.data))
       .catch(() => setStats(null))
       .finally(() => setLoading(false))
+
+    subscriptionsApi.getAll()
+      .then((res) => {
+        const d = res.data
+        setSubStats({ byPlan: d.byPlan ?? {}, estimatedMRR: d.estimatedMRR ?? 0 })
+      })
+      .catch(() => setSubStats(null))
   }, [])
 
   const totalUsers = stats
     ? Object.values(stats.users.byRole).reduce((a, b) => a + b, 0)
-    : 12483
+    : 0
 
   const statCards = [
     {
@@ -66,7 +66,7 @@ export default function AdminAnalyticsPage() {
     },
     {
       label: 'Active Courses',
-      value: loading ? '…' : (stats?.courses.published ?? 2418).toLocaleString(),
+      value: loading ? '…' : (stats?.courses.published ?? 0).toLocaleString(),
       icon: BookOpen,
       gradient: 'from-violet-500 to-purple-400',
       sub: `${stats?.courses.total ?? 0} total`,
@@ -87,7 +87,6 @@ export default function AdminAnalyticsPage() {
     },
   ]
 
-  // Build user-trend chart data. Merge real cumulative count with fallback shape.
   const userTrend = stats?.users.trend
     ? stats.users.trend.map((t, i) => ({
         month: t.month,
@@ -96,6 +95,21 @@ export default function AdminAnalyticsPage() {
         newUsers: t.count,
       }))
     : FALLBACK_USER_TREND
+
+  // Build plan distribution from real subscription data
+  const planDist = subStats
+    ? Object.entries(subStats.byPlan).length > 0
+      ? Object.entries(subStats.byPlan).map(([name, value], i) => ({
+          name,
+          value,
+          color: PLAN_COLORS[name] ?? PLAN_FALLBACK_COLORS[i % PLAN_FALLBACK_COLORS.length],
+        }))
+      : [{ name: 'Free', value: 0, color: PLAN_COLORS.Free }]
+    : [
+        { name: 'Free', value: 0, color: PLAN_COLORS.Free },
+        { name: 'Pro', value: 0, color: PLAN_COLORS.Pro },
+        { name: 'Institution', value: 0, color: PLAN_COLORS.Institution },
+      ]
 
   return (
     <div className="flex flex-col min-h-full">
@@ -147,39 +161,44 @@ export default function AdminAnalyticsPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Revenue */}
+          {/* MRR summary */}
           <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
-            <h2 className="font-semibold text-slate-900 dark:text-white mb-5">Monthly Recurring Revenue</h2>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={REVENUE} barSize={32}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v/1000).toFixed(0)}K`} />
-                <Tooltip contentStyle={{ background: '#1e293b', border: 'none', borderRadius: 12, fontSize: 12 }} formatter={(v: any) => [`$${(v/1000).toFixed(1)}K`, 'MRR']} />
-                <Bar dataKey="mrr" fill="url(#revenueGrad)" radius={[6,6,0,0]} />
-                <defs>
-                  <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#10b981" />
-                    <stop offset="100%" stopColor="#34d399" />
-                  </linearGradient>
-                </defs>
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="font-semibold text-slate-900 dark:text-white">Subscription Revenue</h2>
+              {subStats && (
+                <span className="text-xs text-slate-500 font-medium">
+                  Est. MRR: <span className="text-emerald-600 font-bold">${subStats.estimatedMRR.toLocaleString()}</span>
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              {planDist.map((p) => (
+                <div key={p.name} className="text-center p-4 rounded-xl bg-slate-50 dark:bg-slate-700/50">
+                  <div className="w-3 h-3 rounded-full mx-auto mb-2" style={{ background: p.color }} />
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white">{p.value.toLocaleString()}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{p.name}</p>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Plan distribution */}
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
             <h2 className="font-semibold text-slate-900 dark:text-white mb-5">Subscription Plans</h2>
-            <ResponsiveContainer width="100%" height={160}>
-              <PieChart>
-                <Pie data={PLAN_DIST} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value">
-                  {PLAN_DIST.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
-                </Pie>
-                <Tooltip contentStyle={{ background: '#1e293b', border: 'none', borderRadius: 12, fontSize: 12 }} />
-              </PieChart>
-            </ResponsiveContainer>
+            {planDist.every((p) => p.value === 0) ? (
+              <div className="flex items-center justify-center h-40 text-slate-400 text-sm">No subscriptions yet</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={160}>
+                <PieChart>
+                  <Pie data={planDist} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value">
+                    {planDist.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
+                  </Pie>
+                  <Tooltip contentStyle={{ background: '#1e293b', border: 'none', borderRadius: 12, fontSize: 12 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
             <div className="space-y-2 mt-2">
-              {PLAN_DIST.map((p) => (
+              {planDist.map((p) => (
                 <div key={p.name} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full" style={{ background: p.color }} />
