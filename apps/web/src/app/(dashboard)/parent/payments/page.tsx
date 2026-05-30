@@ -1,23 +1,9 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { CreditCard, CheckCircle2, AlertCircle, Clock, Download, Plus } from 'lucide-react';
-
-const subscription = {
-  plan: 'Pro Family',
-  price: '$49/month',
-  nextBilling: 'June 25, 2026',
-  status: 'Active',
-  children: 2,
-};
-
-const invoices = [
-  { id: 'INV-2026-005', date: 'May 1, 2026', amount: '$49.00', status: 'paid', description: 'Pro Family Plan – May 2026' },
-  { id: 'INV-2026-004', date: 'Apr 1, 2026', amount: '$49.00', status: 'paid', description: 'Pro Family Plan – April 2026' },
-  { id: 'INV-2026-003', date: 'Mar 1, 2026', amount: '$49.00', status: 'paid', description: 'Pro Family Plan – March 2026' },
-  { id: 'INV-2026-002', date: 'Feb 1, 2026', amount: '$49.00', status: 'paid', description: 'Pro Family Plan – February 2026' },
-  { id: 'INV-2026-001', date: 'Jan 1, 2026', amount: '$49.00', status: 'paid', description: 'Pro Family Plan – January 2026' },
-];
+import { CreditCard, CheckCircle2, AlertCircle, Clock, Loader2 } from 'lucide-react';
+import { paymentsApi, subscriptionsApi } from '@/lib/api';
 
 const statusConfig: Record<string, { icon: typeof CheckCircle2; color: string; bg: string }> = {
   paid: { icon: CheckCircle2, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-100 dark:bg-green-900/30' },
@@ -25,14 +11,40 @@ const statusConfig: Record<string, { icon: typeof CheckCircle2; color: string; b
   failed: { icon: AlertCircle, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/30' },
 };
 
+function formatDate(d: string) {
+  return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
 export default function ParentPaymentsPage() {
+  const [payments, setPayments] = useState<any[]>([]);
+  const [subscription, setSubscription] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.allSettled([
+      paymentsApi.getMyPayments().then(r => {
+        const d = r.data?.data ?? r.data;
+        setPayments(Array.isArray(d) ? d : []);
+      }),
+      subscriptionsApi.getMy().then(r => {
+        setSubscription(r.data?.data ?? r.data);
+      }),
+    ]).finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Payments & Billing</h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">Manage your subscription and view invoices</p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Payments & Billing</h1>
+        <p className="text-slate-500 dark:text-slate-400 mt-1">Manage your subscription and view payment history</p>
       </div>
 
       {/* Subscription card */}
@@ -43,52 +55,58 @@ export default function ParentPaymentsPage() {
       >
         <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
         <div className="relative z-10">
-          <div className="flex items-start justify-between">
+          {subscription ? (
+            <>
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-primary-200 text-sm">Current Plan</p>
+                  <p className="text-2xl font-bold mt-1">{subscription.plan}</p>
+                  <p className="text-primary-200 mt-1 text-sm capitalize">{subscription.status}</p>
+                </div>
+                <span className={`text-xs font-bold px-3 py-1 rounded-full ${ subscription.status === 'active' ? 'bg-green-400 text-green-900' : 'bg-amber-400 text-amber-900' }`}>
+                  {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
+                </span>
+              </div>
+              <div className="mt-6 grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-primary-200 text-xs">Start date</p>
+                  <p className="font-semibold">{formatDate(subscription.startsAt)}</p>
+                </div>
+                {subscription.endsAt && (
+                  <div>
+                    <p className="text-primary-200 text-xs">Renewal date</p>
+                    <p className="font-semibold">{formatDate(subscription.endsAt)}</p>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
             <div>
               <p className="text-primary-200 text-sm">Current Plan</p>
-              <p className="text-2xl font-bold mt-1">{subscription.plan}</p>
-              <p className="text-primary-200 mt-1">{subscription.price} · {subscription.children} children</p>
+              <p className="text-2xl font-bold mt-1">Free</p>
+              <p className="text-primary-200 mt-1 text-sm">No active subscription</p>
             </div>
-            <span className="bg-green-400 text-green-900 text-xs font-bold px-3 py-1 rounded-full">{subscription.status}</span>
-          </div>
-          <div className="mt-6 flex items-center gap-6">
-            <div>
-              <p className="text-primary-200 text-xs">Next billing date</p>
-              <p className="font-semibold">{subscription.nextBilling}</p>
-            </div>
-            <button className="ml-auto px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-sm font-medium transition-colors">
-              Manage Plan
-            </button>
-          </div>
+          )}
         </div>
       </motion.div>
 
-      {/* Payment method */}
+      {/* Payment method placeholder */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
         className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700"
       >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-slate-900 dark:text-white">Payment Method</h2>
-          <button className="flex items-center gap-1.5 text-sm text-primary-600 font-medium">
-            <Plus className="h-4 w-4" /> Add new
-          </button>
-        </div>
-        <div className="flex items-center gap-4 p-4 border border-slate-200 dark:border-slate-700 rounded-xl">
-          <div className="h-10 w-16 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
-            <CreditCard className="h-5 w-5 text-white" />
+        <h2 className="text-base font-semibold text-slate-900 dark:text-white mb-4">Payment Method</h2>
+        <div className="flex items-center gap-4 p-4 border border-dashed border-slate-200 dark:border-slate-700 rounded-xl">
+          <div className="h-10 w-16 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center">
+            <CreditCard className="h-5 w-5 text-slate-400" />
           </div>
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-slate-900 dark:text-white">Visa ending in 4242</p>
-            <p className="text-xs text-slate-500">Expires 12/2028</p>
-          </div>
-          <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded-full font-medium">Default</span>
+          <p className="text-sm text-slate-400">No payment method on file — contact admin to add one</p>
         </div>
       </motion.div>
 
-      {/* Invoice history */}
+      {/* Payment history */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -96,29 +114,39 @@ export default function ParentPaymentsPage() {
         className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden"
       >
         <div className="p-6 border-b border-slate-100 dark:border-slate-700">
-          <h2 className="text-base font-semibold text-slate-900 dark:text-white">Invoice History</h2>
+          <h2 className="text-base font-semibold text-slate-900 dark:text-white">Payment History</h2>
         </div>
-        <div className="divide-y divide-slate-100 dark:divide-slate-700">
-          {invoices.map((inv, i) => {
-            const cfg = statusConfig[inv.status];
-            const Icon = cfg.icon;
-            return (
-              <div key={i} className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                <div className={`h-8 w-8 rounded-lg ${cfg.bg} flex items-center justify-center`}>
-                  <Icon className={`h-4 w-4 ${cfg.color}`} />
+        {payments.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+            <CreditCard className="h-10 w-10 mb-3 opacity-40" />
+            <p className="text-sm font-medium">No payment records yet</p>
+            <p className="text-xs mt-1">Payments will appear here once processed</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100 dark:divide-slate-700">
+            {payments.map((p) => {
+              const status = (p.status ?? 'paid').toLowerCase();
+              const cfg = statusConfig[status] ?? statusConfig.paid;
+              const Icon = cfg.icon;
+              return (
+                <div key={p.id} className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                  <div className={`h-8 w-8 rounded-lg ${cfg.bg} flex items-center justify-center flex-shrink-0`}>
+                    <Icon className={`h-4 w-4 ${cfg.color}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                      {p.invoiceId ?? `Payment #${p.id.slice(-6).toUpperCase()}`}
+                    </p>
+                    <p className="text-xs text-slate-500">{formatDate(p.paidAt ?? p.createdAt)}</p>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+                    {p.currency ?? 'USD'} {typeof p.amount === 'number' ? p.amount.toFixed(2) : p.amount}
+                  </span>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-slate-900 dark:text-white">{inv.description}</p>
-                  <p className="text-xs text-slate-500">{inv.date} · {inv.id}</p>
-                </div>
-                <span className="text-sm font-semibold text-slate-900 dark:text-white">{inv.amount}</span>
-                <button className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
-                  <Download className="h-4 w-4" />
-                </button>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </motion.div>
     </div>
   );

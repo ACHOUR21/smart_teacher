@@ -37,6 +37,8 @@ export default function ParentSettingsPage() {
   const [userId, setUserId] = useState('');
   const [loadingUser, setLoadingUser] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
+  const [changingPw, setChangingPw] = useState(false);
   const [notifs, setNotifs] = useState({ gradeUpdate: true, teacherMessage: true, attendance: true, payment: true, newsletter: false });
 
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<Form>({
@@ -65,9 +67,25 @@ export default function ParentSettingsPage() {
     }
   }
 
+  const changePassword = async () => {
+    if (pwForm.next !== pwForm.confirm) { toast.error('New passwords do not match'); return; }
+    if (pwForm.next.length < 8) { toast.error('Password must be at least 8 characters'); return; }
+    setChangingPw(true);
+    try {
+      await authApi.changePassword({ currentPassword: pwForm.current, newPassword: pwForm.next });
+      toast.success('Password updated!');
+      setPwForm({ current: '', next: '', confirm: '' });
+    } catch {
+      toast.error('Failed to update password — check your current password');
+    } finally {
+      setChangingPw(false);
+    }
+  };
+
   const firstName = watch('firstName');
   const lastName = watch('lastName');
   const initials = firstName && lastName ? (firstName[0] + lastName[0]).toUpperCase() : '?';
+  const inputCls = 'w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500';
 
   return (
     <div className="space-y-6">
@@ -89,9 +107,7 @@ export default function ParentSettingsPage() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
             {loadingUser ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
-              </div>
+              <div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-primary-500" /></div>
             ) : (
               <>
                 <div className="flex items-center gap-5 mb-6">
@@ -108,10 +124,8 @@ export default function ParentSettingsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {(['firstName', 'lastName'] as const).map((f) => (
                       <div key={f}>
-                        <label className="block text-xs font-medium text-slate-500 mb-1.5">
-                          {f === 'firstName' ? 'First Name' : 'Last Name'}
-                        </label>
-                        <input {...register(f)} className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500" />
+                        <label className="block text-xs font-medium text-slate-500 mb-1.5">{f === 'firstName' ? 'First Name' : 'Last Name'}</label>
+                        <input {...register(f)} className={inputCls} />
                         {errors[f] && <p className="text-xs text-red-500 mt-1">{errors[f]?.message}</p>}
                       </div>
                     ))}
@@ -159,13 +173,24 @@ export default function ParentSettingsPage() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 space-y-4">
             <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Change Password</h2>
-            {['Current Password', 'New Password', 'Confirm New Password'].map(l => (
-              <div key={l}>
-                <label className="block text-xs font-medium text-slate-500 mb-1.5">{l}</label>
-                <input type="password" className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/30" />
+            {([
+              ['current', 'Current Password'],
+              ['next', 'New Password (min. 8 characters)'],
+              ['confirm', 'Confirm New Password'],
+            ] as const).map(([key, label]) => (
+              <div key={key}>
+                <label className="block text-xs font-medium text-slate-500 mb-1.5">{label}</label>
+                <input type="password" value={pwForm[key]} onChange={(e) => setPwForm({ ...pwForm, [key]: e.target.value })} className={inputCls} />
               </div>
             ))}
-            <button className="px-5 py-2 bg-primary-600 text-white rounded-xl text-sm font-medium">Update Password</button>
+            <button
+              onClick={changePassword}
+              disabled={changingPw || !pwForm.current || !pwForm.next}
+              className="flex items-center gap-2 px-5 py-2 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 disabled:opacity-60"
+            >
+              {changingPw ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
+              {changingPw ? 'Updating…' : 'Update Password'}
+            </button>
           </div>
         </motion.div>
       )}
@@ -180,7 +205,7 @@ export default function ParentSettingsPage() {
             <div>
               <p className="text-sm font-medium text-slate-900 dark:text-white mb-3">Language</p>
               <select className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
-                <option>English</option><option>&#1575;&#1604;&#1593;&#1585;&#1576;&#1610;&#1577;</option><option>Fran&#231;ais</option>
+                <option>English</option><option>العربية</option><option>Français</option>
               </select>
             </div>
           </div>

@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { authApi, usersApi } from '@/lib/api'
 
-const tabs = ['Profile', 'Notifications', 'Privacy', 'Appearance'] as const
+const tabs = ['Profile', 'Notifications', 'Security', 'Appearance'] as const
 type Tab = typeof tabs[number]
 
 export default function StudentSettingsPage() {
@@ -17,6 +17,8 @@ export default function StudentSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', avatarUrl: '' })
   const [notifs, setNotifs] = useState({ grades: true, assignments: true, messages: true, liveSessions: true, announcements: false, weeklyReport: true })
+  const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' })
+  const [changingPw, setChangingPw] = useState(false)
 
   useEffect(() => {
     authApi.me().then((r) => {
@@ -35,11 +37,26 @@ export default function StudentSettingsPage() {
         lastName: form.lastName,
         ...(form.avatarUrl ? { avatarUrl: form.avatarUrl } : {}),
       })
-      toast.success('Settings saved successfully!')
+      toast.success('Profile saved!')
     } catch {
-      toast.error('Failed to save settings')
+      toast.error('Failed to save profile')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const changePassword = async () => {
+    if (pwForm.next !== pwForm.confirm) { toast.error('New passwords do not match'); return }
+    if (pwForm.next.length < 8) { toast.error('New password must be at least 8 characters'); return }
+    setChangingPw(true)
+    try {
+      await authApi.changePassword({ currentPassword: pwForm.current, newPassword: pwForm.next })
+      toast.success('Password updated successfully!')
+      setPwForm({ current: '', next: '', confirm: '' })
+    } catch {
+      toast.error('Failed to update password — check your current password')
+    } finally {
+      setChangingPw(false)
     }
   }
 
@@ -47,6 +64,7 @@ export default function StudentSettingsPage() {
     ? (form.firstName[0] + form.lastName[0]).toUpperCase()
     : '?'
   const fullName = [form.firstName, form.lastName].filter(Boolean).join(' ') || 'Loading…'
+  const inputCls = 'w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500'
 
   return (
     <div className="flex flex-col h-full overflow-auto">
@@ -66,9 +84,7 @@ export default function StudentSettingsPage() {
               <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-card border border-slate-100 dark:border-slate-700">
                 <h2 className="font-semibold text-slate-900 dark:text-white mb-5">Personal Information</h2>
                 {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
-                  </div>
+                  <div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-primary-500" /></div>
                 ) : (
                   <>
                     <div className="flex items-center gap-5 mb-6">
@@ -90,42 +106,23 @@ export default function StudentSettingsPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {(['firstName', 'lastName'] as const).map((key) => (
                         <div key={key}>
-                          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                            {key === 'firstName' ? 'First Name' : 'Last Name'}
-                          </label>
-                          <input
-                            value={form[key]}
-                            onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-                            className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                          />
+                          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{key === 'firstName' ? 'First Name' : 'Last Name'}</label>
+                          <input value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} className={inputCls} />
                         </div>
                       ))}
                       <div className="sm:col-span-2">
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Email</label>
-                        <input
-                          value={form.email}
-                          readOnly
-                          className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-sm text-slate-400 cursor-not-allowed"
-                        />
+                        <input value={form.email} readOnly className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-sm text-slate-400 cursor-not-allowed" />
                       </div>
                       <div className="sm:col-span-2">
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Avatar URL</label>
-                        <input
-                          value={form.avatarUrl}
-                          onChange={(e) => setForm({ ...form, avatarUrl: e.target.value })}
-                          placeholder="https://example.com/avatar.jpg"
-                          className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                        />
+                        <input value={form.avatarUrl} onChange={(e) => setForm({ ...form, avatarUrl: e.target.value })} placeholder="https://example.com/avatar.jpg" className={inputCls} />
                       </div>
                     </div>
                   </>
                 )}
               </div>
-              <button
-                onClick={save}
-                disabled={saving || loading}
-                className="flex items-center gap-2 px-6 py-2.5 bg-primary-600 text-white font-semibold text-sm rounded-xl hover:bg-primary-700 transition-colors disabled:opacity-60"
-              >
+              <button onClick={save} disabled={saving || loading} className="flex items-center gap-2 px-6 py-2.5 bg-primary-600 text-white font-semibold text-sm rounded-xl hover:bg-primary-700 transition-colors disabled:opacity-60">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 {saving ? 'Saving…' : 'Save Changes'}
               </button>
@@ -139,27 +136,50 @@ export default function StudentSettingsPage() {
                 {Object.entries(notifs).map(([key, val]) => (
                   <div key={key} className="flex items-center justify-between py-3 border-b border-slate-100 dark:border-slate-700 last:border-0">
                     <p className="text-sm font-medium text-slate-900 dark:text-white capitalize">{key.replace(/([A-Z])/g, ' $1')}</p>
-                    <button
-                      onClick={() => setNotifs({ ...notifs, [key]: !val })}
-                      className={cn('w-11 h-6 rounded-full transition-colors', val ? 'bg-primary-500' : 'bg-slate-200 dark:bg-slate-600')}
-                    >
-                      <div className={cn('w-4 h-4 rounded-full bg-white shadow transition-transform mx-1', val ? 'translate-x-5' : 'translate-x-0')} />
+                    <button onClick={() => setNotifs({ ...notifs, [key]: !val })} className={cn('w-11 h-6 rounded-full transition-colors relative', val ? 'bg-primary-500' : 'bg-slate-200 dark:bg-slate-600')}>
+                      <div className={cn('absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all', val ? 'left-6' : 'left-1')} />
                     </button>
                   </div>
                 ))}
               </div>
-              <button
-                onClick={() => toast.success('Notification preferences saved')}
-                className="mt-4 flex items-center gap-2 px-6 py-2.5 bg-primary-600 text-white font-semibold text-sm rounded-xl hover:bg-primary-700 transition-colors"
-              >
+              <button onClick={() => toast.success('Notification preferences saved')} className="mt-4 flex items-center gap-2 px-6 py-2.5 bg-primary-600 text-white font-semibold text-sm rounded-xl hover:bg-primary-700 transition-colors">
                 <Save className="w-4 h-4" /> Save
               </button>
             </div>
           )}
 
-          {(activeTab === 'Privacy' || activeTab === 'Appearance') && (
+          {activeTab === 'Security' && (
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-card border border-slate-100 dark:border-slate-700 space-y-4">
+              <h2 className="font-semibold text-slate-900 dark:text-white">Change Password</h2>
+              {([
+                ['current', 'Current Password'],
+                ['next', 'New Password (min. 8 characters)'],
+                ['confirm', 'Confirm New Password'],
+              ] as const).map(([key, label]) => (
+                <div key={key}>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{label}</label>
+                  <input
+                    type="password"
+                    value={pwForm[key]}
+                    onChange={(e) => setPwForm({ ...pwForm, [key]: e.target.value })}
+                    className={inputCls}
+                  />
+                </div>
+              ))}
+              <button
+                onClick={changePassword}
+                disabled={changingPw || !pwForm.current || !pwForm.next}
+                className="flex items-center gap-2 px-6 py-2.5 bg-primary-600 text-white font-semibold text-sm rounded-xl hover:bg-primary-700 transition-colors disabled:opacity-60"
+              >
+                {changingPw ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+                {changingPw ? 'Updating…' : 'Update Password'}
+              </button>
+            </div>
+          )}
+
+          {activeTab === 'Appearance' && (
             <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-card border border-slate-100 dark:border-slate-700">
-              <p className="text-slate-500 text-sm">{activeTab} settings coming soon.</p>
+              <p className="text-slate-500 text-sm">Appearance settings coming soon.</p>
             </div>
           )}
         </div>

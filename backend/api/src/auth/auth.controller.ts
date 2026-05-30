@@ -4,7 +4,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import {
-  IsEmail, IsString, MinLength, IsEnum, IsOptional
+  IsEmail, IsString, MinLength, IsEnum,
 } from 'class-validator';
 import { Role } from '@prisma/client';
 
@@ -31,6 +31,11 @@ export class ForgotPasswordDto {
 
 export class ResetPasswordDto {
   @IsString() token: string;
+  @IsString() @MinLength(8) newPassword: string;
+}
+
+export class ChangePasswordDto {
+  @IsString() currentPassword: string;
   @IsString() @MinLength(8) newPassword: string;
 }
 
@@ -88,5 +93,14 @@ export class AuthController {
   @ApiOperation({ summary: 'Reset password with token' })
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto.token, dto.newPassword);
+  }
+
+  @Post('change-password')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Change password for authenticated user' })
+  changePassword(@Body() dto: ChangePasswordDto, @CurrentUser() user: any) {
+    return this.authService.changePassword(user.id, dto.currentPassword, dto.newPassword);
   }
 }

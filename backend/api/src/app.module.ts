@@ -16,6 +16,8 @@ import { EmailModule } from './email/email.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { MessagesModule } from './messages/messages.module';
 import { SearchModule } from './search/search.module';
+import { PaymentsModule } from './payments/payments.module';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 
 @Module({
   imports: [
@@ -35,6 +37,8 @@ import { SearchModule } from './search/search.module';
     AnalyticsModule,
     MessagesModule,
     SearchModule,
+    PaymentsModule,
+    SubscriptionsModule,
   ],
   controllers: [AppController],
 })

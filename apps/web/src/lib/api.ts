@@ -4,7 +4,6 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v
 
 const api = axios.create({ baseURL: API_BASE });
 
-// Attach token from localStorage
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('accessToken');
@@ -13,7 +12,6 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle 401: attempt refresh, queue concurrent requests
 let isRefreshing = false;
 let refreshQueue: ((token: string) => void)[] = [];
 
@@ -68,6 +66,8 @@ export const authApi = {
   forgotPassword: (email: string) => api.post('/auth/forgot-password', { email }),
   resetPassword: (data: { token: string; newPassword: string }) =>
     api.post('/auth/reset-password', data),
+  changePassword: (data: { currentPassword: string; newPassword: string }) =>
+    api.post('/auth/change-password', data),
 };
 
 export const coursesApi = {
@@ -81,14 +81,12 @@ export const coursesApi = {
   completeLesson: (courseId: string, lessonId: string) =>
     api.post(`/courses/${courseId}/lessons/${lessonId}/complete`),
   getCourseProgress: (courseId: string) => api.get(`/courses/${courseId}/progress`),
-  // Chapter CRUD
   createChapter: (courseId: string, data: any) =>
     api.post(`/courses/${courseId}/chapters`, data),
   updateChapter: (courseId: string, chapterId: string, data: any) =>
     api.patch(`/courses/${courseId}/chapters/${chapterId}`, data),
   deleteChapter: (courseId: string, chapterId: string) =>
     api.delete(`/courses/${courseId}/chapters/${chapterId}`),
-  // Lesson CRUD
   createLesson: (courseId: string, chapterId: string, data: any) =>
     api.post(`/courses/${courseId}/chapters/${chapterId}/lessons`, data),
   updateLesson: (courseId: string, chapterId: string, lessonId: string, data: any) =>
@@ -105,6 +103,7 @@ export const usersApi = {
     api.patch(`/users/${id}/status`, { isActive }),
   getStats: () => api.get('/users/stats'),
   getMyChildren: () => api.get('/users/my-children'),
+  getChildrenSchedule: () => api.get('/users/my-children/schedule'),
 };
 
 export const assignmentsApi = {
@@ -166,4 +165,14 @@ export const messagesApi = {
 export const searchApi = {
   search: (q: string, type?: string) =>
     api.get('/search', { params: { q, type } }),
+};
+
+export const paymentsApi = {
+  getMyPayments: () => api.get('/payments/my-payments'),
+  getAll: (params?: any) => api.get('/payments', { params }),
+};
+
+export const subscriptionsApi = {
+  getMy: () => api.get('/subscriptions/my'),
+  getAll: () => api.get('/subscriptions'),
 };

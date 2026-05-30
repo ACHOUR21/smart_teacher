@@ -12,9 +12,9 @@ import { toast } from 'sonner';
 const profileSchema = z.object({
   firstName: z.string().min(1, 'Required'),
   lastName: z.string().min(1, 'Required'),
-  email: z.string().email('Invalid email'),
+  email: z.string().email(),
   phone: z.string().optional(),
-  bio: z.string().max(300, 'Max 300 chars').optional(),
+  bio: z.string().max(300).optional(),
   subject: z.string().optional(),
   department: z.string().optional(),
 });
@@ -29,17 +29,9 @@ const tabs = [
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <button
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-        checked ? 'bg-primary-600' : 'bg-slate-300 dark:bg-slate-600'
-      }`}
-    >
-      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-        checked ? 'translate-x-6' : 'translate-x-1'
-      }`} />
+    <button role="switch" aria-checked={checked} onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${ checked ? 'bg-primary-600' : 'bg-slate-300 dark:bg-slate-600' }`}>
+      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${ checked ? 'translate-x-6' : 'translate-x-1' }`} />
     </button>
   );
 }
@@ -49,12 +41,10 @@ export default function TeacherSettingsPage() {
   const [userId, setUserId] = useState('');
   const [loadingUser, setLoadingUser] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
+  const [changingPw, setChangingPw] = useState(false);
   const [notifs, setNotifs] = useState({
-    newSubmission: true,
-    parentMessage: true,
-    liveReminder: true,
-    weeklyReport: false,
-    systemAlerts: true,
+    newSubmission: true, parentMessage: true, liveReminder: true, weeklyReport: false, systemAlerts: true,
   });
 
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<ProfileForm>({
@@ -66,15 +56,7 @@ export default function TeacherSettingsPage() {
     authApi.me().then((r) => {
       const u = r.data?.data ?? r.data;
       setUserId(u.id);
-      reset({
-        firstName: u.firstName ?? '',
-        lastName: u.lastName ?? '',
-        email: u.email ?? '',
-        phone: '',
-        bio: '',
-        subject: '',
-        department: '',
-      });
+      reset({ firstName: u.firstName ?? '', lastName: u.lastName ?? '', email: u.email ?? '', phone: '', bio: '', subject: '', department: '' });
     }).catch(() => {}).finally(() => setLoadingUser(false));
   }, [reset]);
 
@@ -91,9 +73,25 @@ export default function TeacherSettingsPage() {
     }
   }
 
+  const changePassword = async () => {
+    if (pwForm.next !== pwForm.confirm) { toast.error('New passwords do not match'); return; }
+    if (pwForm.next.length < 8) { toast.error('Password must be at least 8 characters'); return; }
+    setChangingPw(true);
+    try {
+      await authApi.changePassword({ currentPassword: pwForm.current, newPassword: pwForm.next });
+      toast.success('Password updated!');
+      setPwForm({ current: '', next: '', confirm: '' });
+    } catch {
+      toast.error('Failed to update password — check your current password');
+    } finally {
+      setChangingPw(false);
+    }
+  };
+
   const firstName = watch('firstName');
   const lastName = watch('lastName');
   const initials = firstName && lastName ? (firstName[0] + lastName[0]).toUpperCase() : '?';
+  const inputCls = 'w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500';
 
   return (
     <div className="space-y-6">
@@ -104,17 +102,9 @@ export default function TeacherSettingsPage() {
 
       <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl w-fit">
         {tabs.map(t => (
-          <button
-            key={t.id}
-            onClick={() => setActiveTab(t.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeTab === t.id
-                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}
-          >
-            <t.icon className="h-4 w-4" />
-            {t.label}
+          <button key={t.id} onClick={() => setActiveTab(t.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${ activeTab === t.id ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300' }`}>
+            <t.icon className="h-4 w-4" />{t.label}
           </button>
         ))}
       </div>
@@ -123,74 +113,45 @@ export default function TeacherSettingsPage() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
             {loadingUser ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
-              </div>
+              <div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-primary-500" /></div>
             ) : (
               <>
                 <div className="flex items-center gap-5 mb-6">
                   <div className="relative">
-                    <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-2xl font-bold">
-                      {initials}
-                    </div>
-                    <button className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-primary-600 text-white flex items-center justify-center shadow-md">
-                      <Camera className="h-3.5 w-3.5" />
-                    </button>
+                    <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-2xl font-bold">{initials}</div>
+                    <button className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-primary-600 text-white flex items-center justify-center shadow-md"><Camera className="h-3.5 w-3.5" /></button>
                   </div>
                   <div>
-                    <p className="font-semibold text-slate-900 dark:text-white">
-                      {[firstName, lastName].filter(Boolean).join(' ') || 'Loading…'}
-                    </p>
+                    <p className="font-semibold text-slate-900 dark:text-white">{[firstName, lastName].filter(Boolean).join(' ') || 'Loading…'}</p>
                     <p className="text-sm text-slate-500">Teacher</p>
                   </div>
                 </div>
-
                 <form onSubmit={handleSubmit(onSave)} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {(['firstName', 'lastName'] as const).map((field) => (
                       <div key={field}>
-                        <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">
-                          {field === 'firstName' ? 'First Name' : 'Last Name'}
-                        </label>
-                        <input
-                          {...register(field)}
-                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
-                        />
+                        <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">{field === 'firstName' ? 'First Name' : 'Last Name'}</label>
+                        <input {...register(field)} className={inputCls} />
                         {errors[field] && <p className="text-xs text-red-500 mt-1">{errors[field]?.message}</p>}
                       </div>
                     ))}
                     <div className="md:col-span-2">
                       <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Email</label>
-                      <input
-                        {...register('email')}
-                        readOnly
-                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed"
-                      />
+                      <input {...register('email')} readOnly className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed" />
                     </div>
                     {(['subject', 'department', 'phone'] as const).map((field) => (
                       <div key={field}>
                         <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 capitalize">{field}</label>
-                        <input
-                          {...register(field)}
-                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
-                        />
+                        <input {...register(field)} className={inputCls} />
                       </div>
                     ))}
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Bio</label>
-                    <textarea
-                      {...register('bio')}
-                      rows={3}
-                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 resize-none"
-                    />
+                    <textarea {...register('bio')} rows={3} className={`${inputCls} resize-none`} />
                   </div>
                   <div className="flex justify-end">
-                    <button
-                      type="submit"
-                      disabled={saving}
-                      className="flex items-center gap-2 px-5 py-2 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors disabled:opacity-60"
-                    >
+                    <button type="submit" disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors disabled:opacity-60">
                       {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                       {saving ? 'Saving…' : 'Save Changes'}
                     </button>
@@ -229,13 +190,24 @@ export default function TeacherSettingsPage() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 space-y-4">
             <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Change Password</h2>
-            {['Current Password', 'New Password', 'Confirm New Password'].map(label => (
-              <div key={label}>
+            {([
+              ['current', 'Current Password'],
+              ['next', 'New Password (min. 8 characters)'],
+              ['confirm', 'Confirm New Password'],
+            ] as const).map(([key, label]) => (
+              <div key={key}>
                 <label className="block text-xs font-medium text-slate-500 mb-1.5">{label}</label>
-                <input type="password" className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500" />
+                <input type="password" value={pwForm[key]} onChange={(e) => setPwForm({ ...pwForm, [key]: e.target.value })} className={inputCls} />
               </div>
             ))}
-            <button className="px-5 py-2 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700">Update Password</button>
+            <button
+              onClick={changePassword}
+              disabled={changingPw || !pwForm.current || !pwForm.next}
+              className="flex items-center gap-2 px-5 py-2 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors disabled:opacity-60"
+            >
+              {changingPw ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
+              {changingPw ? 'Updating…' : 'Update Password'}
+            </button>
           </div>
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
             <h2 className="text-sm font-semibold text-slate-900 dark:text-white mb-1">Two-Factor Authentication</h2>
@@ -251,18 +223,12 @@ export default function TeacherSettingsPage() {
             <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Theme & Display</h2>
             <div>
               <p className="text-sm font-medium text-slate-900 dark:text-white mb-3">Color Theme</p>
-              <div className="flex gap-3">
-                {['Light', 'Dark', 'System'].map(t => (
-                  <button key={t} className="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-600 dark:text-slate-300 hover:border-primary-500 hover:text-primary-600">{t}</button>
-                ))}
-              </div>
+              <div className="flex gap-3">{['Light', 'Dark', 'System'].map(t => <button key={t} className="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-600 dark:text-slate-300 hover:border-primary-500">{t}</button>)}</div>
             </div>
             <div>
               <p className="text-sm font-medium text-slate-900 dark:text-white mb-3">Language</p>
               <select className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
-                <option>English</option>
-                <option>&#1575;&#1604;&#1593;&#1585;&#1576;&#1610;&#1577;</option>
-                <option>Fran&#231;ais</option>
+                <option>English</option><option>العربية</option><option>Français</option>
               </select>
             </div>
           </div>
