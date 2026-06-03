@@ -9,6 +9,7 @@ import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { CreateChapterDto, UpdateChapterDto } from './dto/chapter.dto';
 import { CreateLessonDto, UpdateLessonDto } from './dto/lesson.dto';
+import { AuthUser } from '../auth/interfaces/auth-user.interface';
 
 @ApiTags('courses')
 @ApiBearerAuth()
@@ -35,19 +36,19 @@ export class CoursesController {
 
   // Static routes must come before :id
   @Get('my-enrollments')
-  getMyEnrollments(@CurrentUser() user: any) {
+  getMyEnrollments(@CurrentUser() user: AuthUser) {
     return this.svc.getMyEnrollments(user.studentId);
   }
 
   @Get('my-courses')
   @UseGuards(RolesGuard)
   @Roles('TEACHER')
-  getMyTeacherCourses(@CurrentUser() user: any) {
+  getMyTeacherCourses(@CurrentUser() user: AuthUser) {
     return this.svc.getMyTeacherCourses(user.teacherId);
   }
 
   @Get('my-certificates')
-  getMyCertificates(@CurrentUser() user: any) {
+  getMyCertificates(@CurrentUser() user: AuthUser) {
     return this.svc.getMyCertificates(user.id);
   }
 
@@ -59,19 +60,19 @@ export class CoursesController {
   @Post()
   @UseGuards(RolesGuard)
   @Roles('TEACHER', 'ADMIN')
-  create(@Body() dto: CreateCourseDto, @CurrentUser() user: any) {
+  create(@Body() dto: CreateCourseDto, @CurrentUser() user: AuthUser) {
     return this.svc.create(dto, user.teacherId);
   }
 
   @Patch(':id')
   @UseGuards(RolesGuard)
   @Roles('TEACHER', 'ADMIN')
-  update(@Param('id') id: string, @Body() dto: UpdateCourseDto, @CurrentUser() user: any) {
+  update(@Param('id') id: string, @Body() dto: UpdateCourseDto, @CurrentUser() user: AuthUser) {
     return this.svc.update(id, dto, user.teacherId);
   }
 
   @Post(':id/enroll')
-  enroll(@Param('id') courseId: string, @CurrentUser() user: any) {
+  enroll(@Param('id') courseId: string, @CurrentUser() user: AuthUser) {
     return this.svc.enroll(courseId, user.studentId);
   }
 
@@ -80,13 +81,13 @@ export class CoursesController {
   completeLesson(
     @Param('courseId') courseId: string,
     @Param('lessonId') lessonId: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
   ) {
     return this.svc.completeLesson(courseId, lessonId, user.studentId);
   }
 
   @Get(':courseId/progress')
-  getCourseProgress(@Param('courseId') courseId: string, @CurrentUser() user: any) {
+  getCourseProgress(@Param('courseId') courseId: string, @CurrentUser() user: AuthUser) {
     return this.svc.getCourseProgress(courseId, user.studentId);
   }
 
@@ -97,7 +98,7 @@ export class CoursesController {
   createChapter(
     @Param('courseId') courseId: string,
     @Body() dto: CreateChapterDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
   ) {
     return this.svc.createChapter(courseId, dto, user.teacherId);
   }
@@ -109,7 +110,7 @@ export class CoursesController {
     @Param('courseId') courseId: string,
     @Param('chapterId') chapterId: string,
     @Body() dto: UpdateChapterDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
   ) {
     return this.svc.updateChapter(courseId, chapterId, dto, user.teacherId);
   }
@@ -120,7 +121,7 @@ export class CoursesController {
   deleteChapter(
     @Param('courseId') courseId: string,
     @Param('chapterId') chapterId: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
   ) {
     return this.svc.deleteChapter(courseId, chapterId, user.teacherId);
   }
@@ -133,7 +134,7 @@ export class CoursesController {
     @Param('courseId') courseId: string,
     @Param('chapterId') chapterId: string,
     @Body() dto: CreateLessonDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
   ) {
     return this.svc.createLesson(courseId, chapterId, dto, user.teacherId);
   }
@@ -146,7 +147,7 @@ export class CoursesController {
     @Param('chapterId') chapterId: string,
     @Param('lessonId') lessonId: string,
     @Body() dto: UpdateLessonDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
   ) {
     return this.svc.updateLesson(courseId, chapterId, lessonId, dto, user.teacherId);
   }
@@ -158,7 +159,7 @@ export class CoursesController {
     @Param('courseId') courseId: string,
     @Param('chapterId') chapterId: string,
     @Param('lessonId') lessonId: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
   ) {
     return this.svc.deleteLesson(courseId, chapterId, lessonId, user.teacherId);
   }

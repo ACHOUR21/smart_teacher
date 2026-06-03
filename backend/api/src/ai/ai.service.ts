@@ -1,24 +1,28 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import type Anthropic from '@anthropic-ai/sdk';
+import type OpenAI from 'openai';
 
 @Injectable()
 export class AIService {
   private readonly logger = new Logger(AIService.name);
-  private anthropic: any = null;
-  private openai: any = null;
+  private anthropic: Anthropic | null = null;
+  private openai: OpenAI | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
   ) {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { Anthropic } = require('@anthropic-ai/sdk');
       this.anthropic = new Anthropic({ apiKey: config.get('ANTHROPIC_API_KEY') });
     } catch { this.logger.warn('Anthropic SDK not available'); }
 
     try {
-      const OpenAI = require('openai');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { default: OpenAI } = require('openai');
       this.openai = new OpenAI({ apiKey: config.get('OPENAI_API_KEY') });
     } catch { this.logger.warn('OpenAI SDK not available'); }
   }

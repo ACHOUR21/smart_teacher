@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -17,7 +18,7 @@ export class AssignmentsService {
     offset?: number;
   }) {
     const { courseId, teacherId, search, limit = 20, offset = 0 } = params;
-    const where: any = {};
+    const where: Prisma.AssignmentWhereInput = {};
     if (courseId) where.courseId = courseId;
     if (teacherId) where.course = { teacherId };
     if (search) {
@@ -59,7 +60,7 @@ export class AssignmentsService {
     questions?: {
       text: string;
       type: 'MCQ' | 'TEXT';
-      options?: any;
+      options?: string[];
       correctAnswer?: string;
       points: number;
     }[];

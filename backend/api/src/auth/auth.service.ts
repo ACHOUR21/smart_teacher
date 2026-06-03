@@ -187,7 +187,7 @@ export class AuthService {
     }
   }
 
-  private sanitizeUser(user: any) {
+  private sanitizeUser(user: Record<string, unknown>) {
     const { passwordHash, ...safe } = user;
     return safe;
   }

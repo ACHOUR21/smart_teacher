@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CacheService } from '../cache/cache.service';
 import { CreateCourseDto } from './dto/create-course.dto';
@@ -27,7 +28,7 @@ export class CoursesService {
     return this.cache.wrap(
       cacheKey,
       async () => {
-        const where: any = {};
+        const where: Prisma.CourseWhereInput = {};
         if (search) {
           where.OR = [
             { title: { contains: search, mode: 'insensitive' } },
@@ -289,7 +290,7 @@ export class CoursesService {
     if (!chapter) throw new NotFoundException('Chapter not found');
     const course = await this.prisma.course.findUnique({ where: { id: courseId } });
     if (!course || course.teacherId !== teacherId) throw new ForbiddenException();
-    const data: any = {};
+    const data: Prisma.ChapterUpdateInput = {};
     if (dto.title !== undefined) data.title = dto.title;
     if (dto.order !== undefined) data.order = dto.order;
     const updated = await this.prisma.chapter.update({ where: { id: chapterId }, data });
@@ -353,7 +354,7 @@ export class CoursesService {
     if (!lesson) throw new NotFoundException('Lesson not found');
     const course = await this.prisma.course.findUnique({ where: { id: courseId } });
     if (!course || course.teacherId !== teacherId) throw new ForbiddenException();
-    const data: any = {};
+    const data: Prisma.LessonUpdateInput = {};
     if (dto.title !== undefined) data.title = dto.title;
     if (dto.type !== undefined) data.type = dto.type;
     if (dto.content !== undefined) data.content = dto.content;

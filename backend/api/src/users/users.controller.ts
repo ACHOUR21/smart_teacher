@@ -7,6 +7,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 
 @ApiTags('users')
@@ -39,14 +40,14 @@ export class UsersController {
   @Get('my-children')
   @UseGuards(RolesGuard)
   @Roles('PARENT')
-  getMyChildren(@CurrentUser() user: any) {
+  getMyChildren(@CurrentUser() user: AuthUser) {
     return this.svc.getMyChildren(user.id);
   }
 
   @Get('my-children/schedule')
   @UseGuards(RolesGuard)
   @Roles('PARENT')
-  getChildrenSchedule(@CurrentUser() user: any) {
+  getChildrenSchedule(@CurrentUser() user: AuthUser) {
     return this.svc.getChildrenSchedule(user.id);
   }
 
@@ -60,7 +61,7 @@ export class UsersController {
   @Post('link-child')
   @UseGuards(RolesGuard)
   @Roles('PARENT')
-  linkChild(@CurrentUser() user: any, @Body('studentUserId') studentUserId: string) {
+  linkChild(@CurrentUser() user: AuthUser, @Body('studentUserId') studentUserId: string) {
     return this.svc.linkChild(user.id, studentUserId);
   }
 
@@ -70,7 +71,7 @@ export class UsersController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: any, @CurrentUser() user: any) {
+  update(@Param('id') id: string, @Body() body: { firstName?: string; lastName?: string; avatarUrl?: string }, @CurrentUser() user: AuthUser) {
     if (user.role !== 'ADMIN' && user.id !== id) {
       return { error: 'Forbidden' };
     }

@@ -3,6 +3,7 @@ import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AIService } from './ai.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AuthUser } from '../auth/interfaces/auth-user.interface';
 
 @ApiTags('ai')
 @ApiBearerAuth()
@@ -12,12 +13,12 @@ export class AIController {
   constructor(private readonly svc: AIService) {}
 
   @Post('sessions')
-  createSession(@Body() body: { title: string }, @CurrentUser() user: any) {
+  createSession(@Body() body: { title: string }, @CurrentUser() user: AuthUser) {
     return this.svc.createSession(user.id, body.title ?? 'New Chat');
   }
 
   @Get('sessions')
-  getSessions(@CurrentUser() user: any) {
+  getSessions(@CurrentUser() user: AuthUser) {
     return this.svc.getSessions(user.id);
   }
 
@@ -30,7 +31,7 @@ export class AIController {
   chat(
     @Param('id') id: string,
     @Body() body: { message: string },
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
   ) {
     return this.svc.chat(id, user.id, body.message);
   }

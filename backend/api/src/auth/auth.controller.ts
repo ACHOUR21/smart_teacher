@@ -3,6 +3,7 @@ import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { AuthUser } from './interfaces/auth-user.interface';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import {
   IsEmail, IsString, MinLength, IsEnum,
@@ -72,7 +73,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Logout current user' })
-  logout(@CurrentUser() user: any) {
+  logout(@CurrentUser() user: AuthUser) {
     return this.authService.logout(user.id);
   }
 
@@ -80,7 +81,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current user profile' })
-  getMe(@CurrentUser() user: any) {
+  getMe(@CurrentUser() user: AuthUser) {
     return this.authService.getMe(user.id);
   }
 
@@ -104,7 +105,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Change password for authenticated user' })
-  changePassword(@Body() dto: ChangePasswordDto, @CurrentUser() user: any) {
+  changePassword(@Body() dto: ChangePasswordDto, @CurrentUser() user: AuthUser) {
     return this.authService.changePassword(user.id, dto.currentPassword, dto.newPassword);
   }
 }

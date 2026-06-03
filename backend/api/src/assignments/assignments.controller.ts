@@ -7,6 +7,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { SubmitAssignmentDto } from './dto/submit-assignment.dto';
 import { GradeSubmissionDto } from './dto/grade-submission.dto';
@@ -31,7 +32,7 @@ export class AssignmentsController {
 
   // NOTE: must come before :id to avoid route collision
   @Get('my-assignments')
-  getMyAssignments(@CurrentUser() user: any) {
+  getMyAssignments(@CurrentUser() user: AuthUser) {
     return this.svc.getMyStudentAssignments(user.id);
   }
 
@@ -50,7 +51,7 @@ export class AssignmentsController {
   @Post(':id/submit')
   submit(
     @Param('id') id: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
     @Body() dto: SubmitAssignmentDto,
   ) {
     return this.svc.submit(id, user.id, dto.answers);

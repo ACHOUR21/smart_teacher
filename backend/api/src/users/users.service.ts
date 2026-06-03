@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -6,8 +7,8 @@ export class UsersService {
   constructor(private prisma: PrismaService) {}
 
   async findAll(params: { role?: string; search?: string; limit?: number; offset?: number }) {
-    const where: any = {};
-    if (params.role) where.role = params.role.toUpperCase();
+    const where: Prisma.UserWhereInput = {};
+    if (params.role) where.role = params.role.toUpperCase() as Prisma.EnumRoleFilter['equals'];
     if (params.search) {
       where.OR = [
         { firstName: { contains: params.search, mode: 'insensitive' } },
@@ -61,7 +62,7 @@ export class UsersService {
   }
 
   async findStudentsForParent(search: string, limit = 10) {
-    const where: any = { role: 'STUDENT' };
+    const where: Prisma.UserWhereInput = { role: 'STUDENT' };
     if (search.trim()) {
       where.OR = [
         { firstName: { contains: search, mode: 'insensitive' } },
@@ -232,7 +233,11 @@ export class UsersService {
     if (!parent) return [];
 
     const seen = new Set<string>();
-    const sessions: any[] = [];
+    const sessions: Array<{
+      id: string; title: string; courseName: string; status: string;
+      scheduledAt: Date | null; startedAt: Date | null; roomId: string | null;
+      teacherName: string; childName: string; childId: string;
+    }> = [];
 
     for (const ps of parent.children) {
       const { student } = ps;
