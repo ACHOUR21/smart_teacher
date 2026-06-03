@@ -53,7 +53,7 @@ export class AssignmentsService {
   async create(dto: {
     title: string;
     description: string;
-    dueDate?: Date;
+    dueDate?: string;
     totalPoints: number;
     courseId: string;
     questions?: {
@@ -86,9 +86,12 @@ export class AssignmentsService {
     });
   }
 
-  async getMyStudentAssignments(studentId: string) {
+  async getMyStudentAssignments(userId: string) {
+    const student = await this.prisma.student.findUnique({ where: { userId } });
+    if (!student) return [];
+
     const enrollments = await this.prisma.enrollment.findMany({
-      where: { studentId },
+      where: { studentId: student.id },
       select: { courseId: true },
     });
     const courseIds = enrollments.map((e) => e.courseId);
@@ -98,7 +101,7 @@ export class AssignmentsService {
       include: {
         course: true,
         questions: true,
-        submissions: { where: { studentId }, take: 1 },
+        submissions: { where: { studentId: student.id }, take: 1 },
       },
       orderBy: { dueDate: 'asc' },
     });
@@ -106,9 +109,12 @@ export class AssignmentsService {
 
   async submit(
     id: string,
-    studentId: string,
+    userId: string,
     answers: { questionId: string; answer: string }[],
   ) {
+    const student = await this.prisma.student.findUnique({ where: { userId } });
+    if (!student) throw new NotFoundException('Student profile not found');
+
     const assignment = await this.prisma.assignment.findUnique({
       where: { id },
       include: { questions: true },
@@ -116,7 +122,7 @@ export class AssignmentsService {
     if (!assignment) throw new NotFoundException(`Assignment ${id} not found`);
 
     const existing = await this.prisma.submission.findFirst({
-      where: { assignmentId: id, studentId },
+      where: { assignmentId: id, studentId: student.id },
     });
     if (existing) throw new BadRequestException('Already submitted');
 
@@ -138,7 +144,7 @@ export class AssignmentsService {
     return this.prisma.submission.create({
       data: {
         assignmentId: id,
-        studentId,
+        studentId: student.id,
         answers: answers as any,
         score: hasText ? null : score,
         status,
@@ -168,7 +174,7 @@ export class AssignmentsService {
   async gradeSubmission(
     assignmentId: string,
     submissionId: string,
-    data: { score: number; feedback: string },
+    data: { score: number; feedback?: string },
   ) {
     const sub = await this.prisma.submission.findFirst({
       where: { id: submissionId, assignmentId },
@@ -177,7 +183,7 @@ export class AssignmentsService {
 
     return this.prisma.submission.update({
       where: { id: submissionId },
-      data: { score: data.score, feedback: data.feedback, status: 'GRADED', gradedAt: new Date() },
+      data: { score: data.score, feedback: data.feedback ?? null, status: 'GRADED', gradedAt: new Date() },
     });
   }
 }

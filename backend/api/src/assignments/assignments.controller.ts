@@ -7,6 +7,9 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CreateAssignmentDto } from './dto/create-assignment.dto';
+import { SubmitAssignmentDto } from './dto/submit-assignment.dto';
+import { GradeSubmissionDto } from './dto/grade-submission.dto';
 
 @ApiTags('assignments')
 @ApiBearerAuth()
@@ -29,7 +32,7 @@ export class AssignmentsController {
   // NOTE: must come before :id to avoid route collision
   @Get('my-assignments')
   getMyAssignments(@CurrentUser() user: any) {
-    return this.svc.getMyStudentAssignments(user.studentProfile?.id ?? user.id);
+    return this.svc.getMyStudentAssignments(user.id);
   }
 
   @Get(':id')
@@ -40,7 +43,7 @@ export class AssignmentsController {
   @Post()
   @UseGuards(RolesGuard)
   @Roles('TEACHER')
-  create(@Body() dto: any) {
+  create(@Body() dto: CreateAssignmentDto) {
     return this.svc.create(dto);
   }
 
@@ -48,9 +51,9 @@ export class AssignmentsController {
   submit(
     @Param('id') id: string,
     @CurrentUser() user: any,
-    @Body() body: { answers: { questionId: string; answer: string }[] },
+    @Body() dto: SubmitAssignmentDto,
   ) {
-    return this.svc.submit(id, user.studentProfile?.id ?? user.id, body.answers);
+    return this.svc.submit(id, user.id, dto.answers);
   }
 
   @Get(':id/submissions')
@@ -66,8 +69,8 @@ export class AssignmentsController {
   grade(
     @Param('id') assignmentId: string,
     @Param('sid') submissionId: string,
-    @Body() data: { score: number; feedback: string },
+    @Body() dto: GradeSubmissionDto,
   ) {
-    return this.svc.gradeSubmission(assignmentId, submissionId, data);
+    return this.svc.gradeSubmission(assignmentId, submissionId, dto);
   }
 }
