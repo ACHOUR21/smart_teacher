@@ -9,12 +9,12 @@ import {
 import { analyticsApi, subscriptionsApi } from '@/lib/api'
 
 const FALLBACK_USER_TREND = [
-  { month: 'Oct', students: 8200, teachers: 320, parents: 4100 },
-  { month: 'Nov', students: 9100, teachers: 348, parents: 4500 },
-  { month: 'Dec', students: 9800, teachers: 360, parents: 4800 },
-  { month: 'Jan', students: 10500, teachers: 380, parents: 5200 },
-  { month: 'Feb', students: 11200, teachers: 400, parents: 5600 },
-  { month: 'Mar', students: 11800, teachers: 412, parents: 5900 },
+  { month: 'Oct', students: 0, teachers: 0 },
+  { month: 'Nov', students: 0, teachers: 0 },
+  { month: 'Dec', students: 0, teachers: 0 },
+  { month: 'Jan', students: 0, teachers: 0 },
+  { month: 'Feb', students: 0, teachers: 0 },
+  { month: 'Mar', students: 0, teachers: 0 },
 ]
 
 const PLAN_COLORS: Record<string, string> = {
@@ -27,7 +27,7 @@ const PLAN_FALLBACK_COLORS = ['#94a3b8', '#0c84e8', '#00e88b', '#f59e0b']
 interface AdminStats {
   users: {
     byRole: Record<string, number>
-    trend: Array<{ month: string; count: number }>
+    trend: Array<{ month: string; count: number; students: number; teachers: number }>
   }
   courses: { total: number; published: number; draft: number }
   activity: { recentEnrollments: number; aiSessions: number }
@@ -88,15 +88,14 @@ export default function AdminAnalyticsPage() {
   ]
 
   const userTrend = stats?.users.trend
-    ? stats.users.trend.map((t, i) => ({
+    ? stats.users.trend.map((t) => ({
         month: t.month,
-        students: FALLBACK_USER_TREND[i]?.students ?? t.count * 10,
-        teachers: FALLBACK_USER_TREND[i]?.teachers ?? Math.round(t.count * 0.8),
+        students: t.students,
+        teachers: t.teachers,
         newUsers: t.count,
       }))
     : FALLBACK_USER_TREND
 
-  // Build plan distribution from real subscription data
   const planDist = subStats
     ? Object.entries(subStats.byPlan).length > 0
       ? Object.entries(subStats.byPlan).map(([name, value], i) => ({
@@ -136,7 +135,7 @@ export default function AdminAnalyticsPage() {
 
         {/* User growth */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
-          <h2 className="font-semibold text-slate-900 dark:text-white mb-5">User Growth</h2>
+          <h2 className="font-semibold text-slate-900 dark:text-white mb-5">New User Registrations</h2>
           <ResponsiveContainer width="100%" height={240}>
             <AreaChart data={userTrend}>
               <defs>
@@ -153,9 +152,9 @@ export default function AdminAnalyticsPage() {
               <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={{ background: '#1e293b', border: 'none', borderRadius: 12, fontSize: 12 }} />
-              <Area type="monotone" dataKey="students" stroke="#0c84e8" strokeWidth={2} fill="url(#gStudents)" name="Students" />
-              <Area type="monotone" dataKey="teachers" stroke="#8b5cf6" strokeWidth={2} fill="url(#gTeachers)" name="Teachers" />
-              {stats && <Area type="monotone" dataKey="newUsers" stroke="#22c55e" strokeWidth={2} fill="none" strokeDasharray="4 2" name="New This Month" />}
+              <Area type="monotone" dataKey="students" stroke="#0c84e8" strokeWidth={2} fill="url(#gStudents)" name="New Students" />
+              <Area type="monotone" dataKey="teachers" stroke="#8b5cf6" strokeWidth={2} fill="url(#gTeachers)" name="New Teachers" />
+              {stats && <Area type="monotone" dataKey="newUsers" stroke="#22c55e" strokeWidth={2} fill="none" strokeDasharray="4 2" name="All New Users" />}
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -211,7 +210,6 @@ export default function AdminAnalyticsPage() {
           </div>
         </div>
 
-        {/* User breakdown from real data */}
         {stats && (
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
             <h2 className="font-semibold text-slate-900 dark:text-white mb-4">Users by Role</h2>
@@ -226,7 +224,6 @@ export default function AdminAnalyticsPage() {
           </div>
         )}
 
-        {/* Courses breakdown from real data */}
         {stats && (
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
             <h2 className="font-semibold text-slate-900 dark:text-white mb-4">Courses Breakdown</h2>

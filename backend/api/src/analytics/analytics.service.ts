@@ -9,6 +9,159 @@ export class AnalyticsService {
     private readonly cache: CacheService,
   ) {}
 
+  private buildWeekBuckets(
+    now: Date,
+    weeks: number,
+    series: Array<{ data: Array<Record<string, unknown>>; dateField: string; key: string }>,
+  ): Array<Record<string, unknown>> {
+    const buckets = Array.from({ length: weeks }, (_, i) => {
+      const anchor = new Date(now.getTime() - (weeks - 1 - i) * 7 * 24 * 60 * 60 * 1000);
+      const monday = new Date(anchor);
+      const dow = monday.getDay();
+      monday.setDate(monday.getDate() - (dow === 0 ? 6 : dow - 1));
+      monday.setHours(0, 0, 0, 0);
+      return {
+        label: `Wk ${i + 1}`,
+        start: monday,
+        end: new Date(monday.getTime() + 7 * 24 * 60 * 60 * 1000),
+      };
+    });
+
+    return buckets.map((b) => {
+      const row: Record<string, unknown> = { week: b.label };
+      for (const s of series) {
+        row[s.key] = s.data.filter((d) => {
+          const t = d[s.dateField] as Date | null | undefined;
+          return t != null && t >= b.start && t < b.end;
+        }).length;
+      }
+      return row;
+    });
+  }
+
+  async getTeacherWeeklyEngagement(userId: string, weeks = 8) {
+    return this.cache.wrap(`analytics:teacher:weekly:${userId}:${weeks}`, async () => {
+      const teacher = await this.prisma.teacher.findUnique({
+        where: { userId },
+        select: { id: true },
+      });
+      if (!teacher) return [];
+
+      const now = new Date();
+      const since = new Date(now.getTime() - weeks * 7 * 24 * 60 * 60 * 1000);
+
+      const [completions, submissions, attendances] = await Promise.all([
+        this.prisma.lessonProgress.findMany({
+          where: {
+            isCompleted: true,
+            completedAt: { gte: since },
+            lesson: { chapter: { course: { teacherId: teacher.id } } },
+          },
+          select: { completedAt: true },
+        }),
+        this.prisma.submission.findMany({
+          where: {
+            submittedAt: { gte: since },
+            assignment: { course: { teacherId: teacher.id } },
+          },
+          select: { submittedAt: true },
+        }),
+        this.prisma.attendance.findMany({
+          where: {
+            joinedAt: { gte: since },
+            session: { teacherId: teacher.id },
+          },
+          select: { joinedAt: true },
+        }),
+      ]);
+
+      return this.buildWeekBuckets(now, weeks, [
+        { data: completions as any[], dateField: 'completedAt', key: 'views' },
+        { data: submissions as any[], dateField: 'submittedAt', key: 'submissions' },
+        { data: attendances as any[], dateField: 'joinedAt', key: 'liveAttendance' },
+      ]);
+    }, 60_000);
+  }
+
+  async getAdminWeeklyEngagement(weeks = 6) {
+    return this.cache.wrap(`analytics:admin:weekly:${weeks}`, async () => {
+      const now = new Date();
+      const since = new Date(now.getTime() - weeks * 7 * 24 * 60 * 60 * 1000);
+
+      const [attendances, aiSessions] = await Promise.all([
+        this.prisma.attendance.findMany({
+          where: { joinedAt: { gte: since } },
+          select: { joinedAt: true },
+        }),
+        this.prisma.aISession.findMany({
+          where: { createdAt: { gte: since } },
+          select: { createdAt: true },
+        }),
+      ]);
+
+      return this.buildWeekBuckets(now, weeks, [
+        { data: attendances as any[], dateField: 'joinedAt', key: 'sessions' },
+        { data: aiSessions as any[], dateField: 'createdAt', key: 'aiChats' },
+      ]);
+    }, 2 * 60_000);
+  }
+
+  async getCourseCompletionByCategory() {
+    return this.cache.wrap('analytics:admin:completion-by-category', async () => {
+      const [courses, completedProgress] = await Promise.all([
+        this.prisma.course.findMany({
+          where: { isPublished: true },
+          select: {
+            id: true,
+            category: true,
+            _count: { select: { enrollments: true } },
+            chapters: {
+              select: {
+                lessons: { select: { id: true } },
+              },
+            },
+          },
+        }),
+        this.prisma.lessonProgress.findMany({
+          where: {
+            isCompleted: true,
+            lesson: { chapter: { course: { isPublished: true } } },
+          },
+          select: {
+            lesson: { select: { chapter: { select: { courseId: true } } } },
+          },
+        }),
+      ]);
+
+      const completionsByCourse: Record<string, number> = {};
+      for (const p of completedProgress) {
+        const cId = p.lesson.chapter.courseId;
+        completionsByCourse[cId] = (completionsByCourse[cId] ?? 0) + 1;
+      }
+
+      const categoryMap: Record<string, { total: number; completed: number }> = {};
+      for (const course of courses) {
+        const cat = course.category ?? 'Other';
+        const totalLessons = course.chapters.reduce((s, ch) => s + ch.lessons.length, 0);
+        const enrollments = course._count.enrollments;
+        const completed = completionsByCourse[course.id] ?? 0;
+        const possible = totalLessons * enrollments;
+        if (!categoryMap[cat]) categoryMap[cat] = { total: 0, completed: 0 };
+        categoryMap[cat].total += possible;
+        categoryMap[cat].completed += completed;
+      }
+
+      return Object.entries(categoryMap)
+        .filter(([, v]) => v.total > 0)
+        .map(([subject, { total, completed }]) => ({
+          subject,
+          rate: Math.round((completed / total) * 100),
+        }))
+        .sort((a, b) => b.rate - a.rate)
+        .slice(0, 8);
+    }, 5 * 60_000);
+  }
+
   async getTeacherAnalytics(userId: string) {
     return this.cache.wrap(`analytics:teacher:${userId}`, async () => {
       const teacher = await this.prisma.teacher.findUnique({
@@ -115,10 +268,17 @@ export class AnalyticsService {
         Array.from({ length: 6 }, async (_, i) => {
           const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
           const next = new Date(d.getFullYear(), d.getMonth() + 1, 1);
-          const count = await this.prisma.user.count({
-            where: { createdAt: { gte: d, lt: next } },
-          });
-          return { month: d.toLocaleString('en-US', { month: 'short' }), count };
+          const [count, students, teachers] = await Promise.all([
+            this.prisma.user.count({ where: { createdAt: { gte: d, lt: next } } }),
+            this.prisma.user.count({ where: { createdAt: { gte: d, lt: next }, role: 'STUDENT' } }),
+            this.prisma.user.count({ where: { createdAt: { gte: d, lt: next }, role: 'TEACHER' } }),
+          ]);
+          return {
+            month: d.toLocaleString('en-US', { month: 'short' }),
+            count,
+            students,
+            teachers,
+          };
         }),
       );
 
@@ -145,7 +305,12 @@ export class AnalyticsService {
 
       const studentId = student.id;
 
-      const [enrollments, completedLessons, submissions, attendances] =
+      const weekStart = new Date();
+      const dow = weekStart.getDay();
+      weekStart.setDate(weekStart.getDate() - (dow === 0 ? 6 : dow - 1));
+      weekStart.setHours(0, 0, 0, 0);
+
+      const [enrollments, completedLessons, submissions, attendances, weeklyLessons] =
         await Promise.all([
           this.prisma.enrollment.count({ where: { studentId } }),
           this.prisma.lessonProgress.count({ where: { studentId, isCompleted: true } }),
@@ -156,6 +321,13 @@ export class AnalyticsService {
             take: 20,
           }),
           this.prisma.attendance.count({ where: { studentId } }),
+          this.prisma.lessonProgress.findMany({
+            where: { studentId, isCompleted: true, completedAt: { gte: weekStart } },
+            select: {
+              completedAt: true,
+              lesson: { select: { durationMins: true } },
+            },
+          }),
         ]);
 
       const gradedSubs = submissions.filter((s) => s.status === 'GRADED');
@@ -166,6 +338,18 @@ export class AnalyticsService {
             )
           : null;
 
+      const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const weeklyActivity = DAYS.map((day, i) => {
+        const s = new Date(weekStart.getTime() + i * 86_400_000);
+        const e = new Date(s.getTime() + 86_400_000);
+        return {
+          day,
+          minutes: weeklyLessons
+            .filter((l) => l.completedAt != null && l.completedAt >= s && l.completedAt < e)
+            .reduce((sum, l) => sum + (l.lesson.durationMins ?? 15), 0),
+        };
+      });
+
       return {
         enrollments,
         completedLessons,
@@ -173,6 +357,7 @@ export class AnalyticsService {
         gradedSubmissions: gradedSubs.length,
         avgScore,
         attendances,
+        weeklyActivity,
         recentScores: gradedSubs.slice(0, 10).map((s) => ({
           score: s.score,
           date: s.submittedAt,

@@ -10,8 +10,7 @@ import {
 import { Users, TrendingUp, ClipboardList, Award, Download, Loader2 } from 'lucide-react';
 import { analyticsApi } from '@/lib/api';
 
-// Static fallback datasets used when the backend is unavailable
-const WEEKLY_ENGAGEMENT = [
+const WEEKLY_ENGAGEMENT_FALLBACK = [
   { week: 'Wk 1', views: 142, submissions: 38, liveAttendance: 22 },
   { week: 'Wk 2', views: 189, submissions: 45, liveAttendance: 28 },
   { week: 'Wk 3', views: 167, submissions: 41, liveAttendance: 25 },
@@ -60,6 +59,8 @@ export default function TeacherAnalyticsPage() {
   const [stats, setStats] = useState<TeacherStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<'4w' | '8w' | '12w'>('8w');
+  const [engData, setEngData] = useState<any[]>([]);
+  const [engLoading, setEngLoading] = useState(true);
 
   useEffect(() => {
     analyticsApi.teacher()
@@ -68,9 +69,20 @@ export default function TeacherAnalyticsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const engData = WEEKLY_ENGAGEMENT.slice(
-    range === '4w' ? -4 : range === '8w' ? -8 : 0,
-  );
+  useEffect(() => {
+    const weeks = range === '4w' ? 4 : range === '8w' ? 8 : 12;
+    setEngLoading(true);
+    analyticsApi.teacherWeeklyEngagement(weeks)
+      .then((res) => {
+        const d = res.data;
+        setEngData(Array.isArray(d) ? d : (d?.data ?? []));
+      })
+      .catch(() => {
+        const slice = range === '4w' ? -4 : range === '8w' ? -8 : 0;
+        setEngData(WEEKLY_ENGAGEMENT_FALLBACK.slice(slice));
+      })
+      .finally(() => setEngLoading(false));
+  }, [range]);
 
   const gradeDistData = stats?.gradeDistribution ?? FALLBACK_GRADE_DIST;
   const gradeChartData = gradeDistData.map((g) => ({
@@ -152,7 +164,10 @@ export default function TeacherAnalyticsPage() {
 
       {/* Engagement over time */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
-        <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Student Engagement Over Time</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-gray-900 dark:text-white">Student Engagement Over Time</h3>
+          {engLoading && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
+        </div>
         <ResponsiveContainer width="100%" height={240}>
           <AreaChart data={engData}>
             <defs>
@@ -170,7 +185,7 @@ export default function TeacherAnalyticsPage() {
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip />
             <Legend />
-            <Area type="monotone" dataKey="views" name="Lesson Views" stroke="#3b82f6" fill="url(#views)" strokeWidth={2} />
+            <Area type="monotone" dataKey="views" name="Lesson Completions" stroke="#3b82f6" fill="url(#views)" strokeWidth={2} />
             <Area type="monotone" dataKey="submissions" name="Submissions" stroke="#22c55e" fill="url(#subs)" strokeWidth={2} />
             <Area type="monotone" dataKey="liveAttendance" name="Live Attendance" stroke="#f59e0b" fill="none" strokeWidth={2} strokeDasharray="4 2" />
           </AreaChart>

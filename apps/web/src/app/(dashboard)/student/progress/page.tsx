@@ -9,7 +9,7 @@ import {
 import { analyticsApi, coursesApi } from '@/lib/api'
 import { gradeToLetter } from '@/lib/utils'
 
-const WEEKLY_ACTIVITY = [
+const WEEKLY_ACTIVITY_FALLBACK = [
   { day: 'Mon', minutes: 45 }, { day: 'Tue', minutes: 90 },
   { day: 'Wed', minutes: 30 }, { day: 'Thu', minutes: 120 },
   { day: 'Fri', minutes: 60 }, { day: 'Sat', minutes: 75 },
@@ -31,6 +31,7 @@ interface StudentStats {
   gradedSubmissions: number
   avgScore: number | null
   recentScores: Array<{ score: number | null; date: string }>
+  weeklyActivity?: Array<{ day: string; minutes: number }>
 }
 
 interface CourseProgress {
@@ -58,7 +59,6 @@ export default function StudentProgressPage() {
       const enrollResult = results[1]
       if (enrollResult.status === 'fulfilled') {
         const enrs = enrollResult.value as any[]
-        // Fetch per-course progress in parallel
         Promise.allSettled(
           enrs.map((enr: any) => {
             const courseId = enr.course?.id ?? enr.courseId ?? enr.id
@@ -79,6 +79,9 @@ export default function StudentProgressPage() {
       }
     }).finally(() => setLoading(false))
   }, [])
+
+  const weeklyActivity = stats?.weeklyActivity ?? WEEKLY_ACTIVITY_FALLBACK
+  const hasRealActivity = stats?.weeklyActivity != null && stats.weeklyActivity.some((d) => d.minutes > 0)
 
   const gradeTrend = stats?.recentScores?.length
     ? stats.recentScores.slice().reverse().map((s, i) => ({
@@ -143,9 +146,11 @@ export default function StudentProgressPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Weekly activity */}
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
-            <h2 className="font-semibold text-slate-900 dark:text-white mb-5">Weekly Study Time (minutes)</h2>
+            <h2 className="font-semibold text-slate-900 dark:text-white mb-5">
+              {hasRealActivity ? 'This Week — Study Time (minutes)' : 'Weekly Study Time (minutes)'}
+            </h2>
             <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={WEEKLY_ACTIVITY} barSize={28}>
+              <BarChart data={weeklyActivity} barSize={28}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis dataKey="day" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />

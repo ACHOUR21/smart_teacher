@@ -18,10 +18,34 @@ export class AnalyticsController {
     return this.analyticsService.getTeacherAnalytics(req.user.sub);
   }
 
+  @Get('teacher/weekly-engagement')
+  @Roles('TEACHER')
+  getTeacherWeeklyEngagement(
+    @Request() req: any,
+    @Query('weeks') weeks?: string,
+  ) {
+    return this.analyticsService.getTeacherWeeklyEngagement(
+      req.user.sub,
+      weeks ? +weeks : 8,
+    );
+  }
+
   @Get('admin')
   @Roles('ADMIN')
   getAdminAnalytics() {
     return this.analyticsService.getAdminAnalytics();
+  }
+
+  @Get('admin/weekly-engagement')
+  @Roles('ADMIN')
+  getAdminWeeklyEngagement(@Query('weeks') weeks?: string) {
+    return this.analyticsService.getAdminWeeklyEngagement(weeks ? +weeks : 6);
+  }
+
+  @Get('admin/completion-by-category')
+  @Roles('ADMIN')
+  getCourseCompletionByCategory() {
+    return this.analyticsService.getCourseCompletionByCategory();
   }
 
   @Get('student')

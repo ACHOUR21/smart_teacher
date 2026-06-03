@@ -39,12 +39,30 @@ const COMPLETION_FALLBACK = [
 export default function AdminReportsPage() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [engagementData, setEngagementData] = useState<any[]>([]);
+  const [completionData, setCompletionData] = useState<any[]>([]);
 
   useEffect(() => {
     analyticsApi.admin()
       .then((res) => setStats(res.data))
       .catch(() => setStats(null))
       .finally(() => setLoading(false));
+
+    analyticsApi.adminWeeklyEngagement(6)
+      .then((res) => {
+        const d = res.data;
+        const arr = Array.isArray(d) ? d : (d?.data ?? []);
+        setEngagementData(arr.length > 0 ? arr : ENGAGEMENT_FALLBACK);
+      })
+      .catch(() => setEngagementData(ENGAGEMENT_FALLBACK));
+
+    analyticsApi.completionByCategory()
+      .then((res) => {
+        const d = res.data;
+        const arr = Array.isArray(d) ? d : (d?.data ?? []);
+        setCompletionData(arr.length > 0 ? arr : COMPLETION_FALLBACK);
+      })
+      .catch(() => setCompletionData(COMPLETION_FALLBACK));
   }, []);
 
   const totalUsers = stats
@@ -83,10 +101,10 @@ export default function AdminReportsPage() {
   ];
 
   const userGrowth = stats?.users?.trend
-    ? stats.users.trend.map((t: any, i: number) => ({
+    ? stats.users.trend.map((t: any) => ({
         month: t.month,
-        students: USER_GROWTH_FALLBACK[i]?.students ?? t.count * 10,
-        teachers: USER_GROWTH_FALLBACK[i]?.teachers ?? Math.round(t.count * 0.8),
+        students: t.students,
+        teachers: t.teachers,
       }))
     : USER_GROWTH_FALLBACK;
 
@@ -94,7 +112,7 @@ export default function AdminReportsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Reports & Analytics</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Reports &amp; Analytics</h1>
           <p className="text-slate-500 dark:text-slate-400 mt-1">Platform-wide performance insights</p>
         </div>
         <button className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-sm font-medium hover:bg-slate-50">
@@ -120,7 +138,7 @@ export default function AdminReportsPage() {
       {/* User Growth */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
         className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
-        <h2 className="text-base font-semibold text-slate-900 dark:text-white mb-4">User Growth</h2>
+        <h2 className="text-base font-semibold text-slate-900 dark:text-white mb-4">New User Registrations</h2>
         <ResponsiveContainer width="100%" height={240}>
           <AreaChart data={userGrowth} margin={{ top: 0, right: 0, left: -10, bottom: 0 }}>
             <defs>
@@ -149,13 +167,13 @@ export default function AdminReportsPage() {
           className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
           <h2 className="text-base font-semibold text-slate-900 dark:text-white mb-4">Weekly Engagement</h2>
           <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={ENGAGEMENT_FALLBACK} margin={{ top: 0, right: 0, left: -10, bottom: 0 }}>
+            <LineChart data={engagementData} margin={{ top: 0, right: 0, left: -10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis dataKey="week" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip />
-              <Line type="monotone" dataKey="sessions" stroke="#3b82f6" strokeWidth={2} dot={false} name="Live Sessions" />
-              <Line type="monotone" dataKey="aiChats" stroke="#8b5cf6" strokeWidth={2} dot={false} name="AI Chats" />
+              <Line type="monotone" dataKey="sessions" stroke="#3b82f6" strokeWidth={2} dot={false} name="Live Attendance" />
+              <Line type="monotone" dataKey="aiChats" stroke="#8b5cf6" strokeWidth={2} dot={false} name="AI Sessions" />
             </LineChart>
           </ResponsiveContainer>
         </motion.div>
@@ -163,9 +181,9 @@ export default function AdminReportsPage() {
         {/* Course completion */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
           className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
-          <h2 className="text-base font-semibold text-slate-900 dark:text-white mb-4">Completion Rate by Subject</h2>
+          <h2 className="text-base font-semibold text-slate-900 dark:text-white mb-4">Completion Rate by Category</h2>
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={COMPLETION_FALLBACK} layout="vertical" margin={{ top: 0, right: 20, left: 20, bottom: 0 }}>
+            <BarChart data={completionData} layout="vertical" margin={{ top: 0, right: 20, left: 20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis type="number" tick={{ fontSize: 11 }} domain={[0, 100]} tickFormatter={v => `${v}%`} />
               <YAxis type="category" dataKey="subject" tick={{ fontSize: 11 }} />

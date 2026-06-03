@@ -149,7 +149,12 @@ export const aiApi = {
 
 export const analyticsApi = {
   teacher: () => api.get('/analytics/teacher'),
+  teacherWeeklyEngagement: (weeks?: number) =>
+    api.get('/analytics/teacher/weekly-engagement', { params: weeks ? { weeks } : undefined }),
   admin: () => api.get('/analytics/admin'),
+  adminWeeklyEngagement: (weeks?: number) =>
+    api.get('/analytics/admin/weekly-engagement', { params: weeks ? { weeks } : undefined }),
+  completionByCategory: () => api.get('/analytics/admin/completion-by-category'),
   student: () => api.get('/analytics/student'),
   auditLogs: (params?: any) => api.get('/analytics/audit-logs', { params }),
 };
