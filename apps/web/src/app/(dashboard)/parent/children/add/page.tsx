@@ -31,7 +31,7 @@ export default function AddChildPage() {
   const [searching, setSearching] = useState(false);
   const [linking, setLinking] = useState(false);
 
-  const { register, handleSubmit, formState: { errors } } = useForm({
+  const { register, handleSubmit, formState: { errors } } = useForm<{ query: string }>({
     resolver: zodResolver(searchSchema),
   });
 

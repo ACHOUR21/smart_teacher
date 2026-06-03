@@ -8,6 +8,8 @@ import { NotificationsDropdown } from './notifications-dropdown';
 
 interface HeaderProps {
   mobileSidebar?: React.ReactNode;
+  title?: string;
+  subtitle?: string;
 }
 
 export function Header({ mobileSidebar }: HeaderProps) {

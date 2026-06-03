@@ -2,13 +2,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Eye, EyeOff, GraduationCap, BookOpen, Heart, Shield, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { ROLE_REDIRECTS } from '@/lib/constants';
 
 const schema = z.object({
   name: z.string().min(2, 'Name is required'),
@@ -25,7 +23,6 @@ const roles = [
 ];
 
 export default function RegisterPage() {
-  const router = useRouter();
   const { register: authRegister } = useAuth();
   const [role, setRole] = useState('STUDENT');
   const [showPass, setShowPass] = useState(false);
@@ -40,10 +37,8 @@ export default function RegisterPage() {
   async function onSubmit(data: FormData) {
     try {
       setError('');
-      const user = await authRegister(data.name, data.email, data.password, role);
-      const roleKey = user.role.toLowerCase() as keyof typeof ROLE_REDIRECTS;
-      const dest = ROLE_REDIRECTS[roleKey] ?? '/student';
-      router.push(dest);
+      const [firstName, ...rest] = data.name.trim().split(' ');
+      await authRegister({ firstName, lastName: rest.join(' ') || firstName, email: data.email, password: data.password, role });
     } catch {
       setError('Registration failed. This email may already be in use.');
     }

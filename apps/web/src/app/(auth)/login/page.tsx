@@ -2,13 +2,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { ROLE_REDIRECTS } from '@/lib/constants';
 
 const schema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -18,7 +16,6 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export default function LoginPage() {
-  const router = useRouter();
   const { login } = useAuth();
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState('');
@@ -32,10 +29,7 @@ export default function LoginPage() {
   async function onSubmit(data: FormData) {
     try {
       setError('');
-      const user = await login(data.email, data.password);
-      const roleKey = user.role.toLowerCase() as keyof typeof ROLE_REDIRECTS;
-      const dest = ROLE_REDIRECTS[roleKey] ?? '/student';
-      router.push(dest);
+      await login(data.email, data.password);
     } catch {
       setError('Invalid email or password. Please try again.');
     }

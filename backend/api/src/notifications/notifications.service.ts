@@ -52,7 +52,7 @@ export class NotificationsService {
         title: data.title,
         body: data.body,
         type: data.type,
-        data: data.data ?? {},
+        data: (data.data ?? {}) as any,
       },
     });
   }
