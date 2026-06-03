@@ -1,6 +1,10 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CacheService } from '../cache/cache.service';
+import { CreateCourseDto } from './dto/create-course.dto';
+import { UpdateCourseDto } from './dto/update-course.dto';
+import { CreateChapterDto, UpdateChapterDto } from './dto/chapter.dto';
+import { CreateLessonDto, UpdateLessonDto } from './dto/lesson.dto';
 
 @Injectable()
 export class CoursesService {
@@ -83,7 +87,7 @@ export class CoursesService {
     );
   }
 
-  async create(dto: any, teacherId: string) {
+  async create(dto: CreateCourseDto, teacherId: string) {
     const course = await this.prisma.course.create({
       data: {
         title: dto.title,
@@ -99,7 +103,7 @@ export class CoursesService {
     return course;
   }
 
-  async update(id: string, dto: any, teacherId: string) {
+  async update(id: string, dto: UpdateCourseDto, teacherId: string) {
     const course = await this.prisma.course.findUnique({ where: { id } });
     if (!course) throw new NotFoundException(`Course ${id} not found`);
     if (course.teacherId !== teacherId) throw new ForbiddenException();
@@ -261,7 +265,7 @@ export class CoursesService {
     });
   }
 
-  async createChapter(courseId: string, dto: { title: string; order?: number }, teacherId: string) {
+  async createChapter(courseId: string, dto: CreateChapterDto, teacherId: string) {
     const course = await this.prisma.course.findUnique({ where: { id: courseId } });
     if (!course) throw new NotFoundException(`Course ${courseId} not found`);
     if (course.teacherId !== teacherId) throw new ForbiddenException();
@@ -278,7 +282,7 @@ export class CoursesService {
   async updateChapter(
     courseId: string,
     chapterId: string,
-    dto: { title?: string; order?: number },
+    dto: UpdateChapterDto,
     teacherId: string,
   ) {
     const chapter = await this.prisma.chapter.findFirst({ where: { id: chapterId, courseId } });
@@ -315,7 +319,7 @@ export class CoursesService {
   async createLesson(
     courseId: string,
     chapterId: string,
-    dto: any,
+    dto: CreateLessonDto,
     teacherId: string,
   ) {
     const chapter = await this.prisma.chapter.findFirst({ where: { id: chapterId, courseId } });
@@ -342,7 +346,7 @@ export class CoursesService {
     courseId: string,
     chapterId: string,
     lessonId: string,
-    dto: any,
+    dto: UpdateLessonDto,
     teacherId: string,
   ) {
     const lesson = await this.prisma.lesson.findFirst({ where: { id: lessonId, chapterId } });

@@ -5,6 +5,10 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CreateCourseDto } from './dto/create-course.dto';
+import { UpdateCourseDto } from './dto/update-course.dto';
+import { CreateChapterDto, UpdateChapterDto } from './dto/chapter.dto';
+import { CreateLessonDto, UpdateLessonDto } from './dto/lesson.dto';
 
 @ApiTags('courses')
 @ApiBearerAuth()
@@ -55,14 +59,14 @@ export class CoursesController {
   @Post()
   @UseGuards(RolesGuard)
   @Roles('TEACHER', 'ADMIN')
-  create(@Body() dto: any, @CurrentUser() user: any) {
+  create(@Body() dto: CreateCourseDto, @CurrentUser() user: any) {
     return this.svc.create(dto, user.teacherId);
   }
 
   @Patch(':id')
   @UseGuards(RolesGuard)
   @Roles('TEACHER', 'ADMIN')
-  update(@Param('id') id: string, @Body() dto: any, @CurrentUser() user: any) {
+  update(@Param('id') id: string, @Body() dto: UpdateCourseDto, @CurrentUser() user: any) {
     return this.svc.update(id, dto, user.teacherId);
   }
 
@@ -92,7 +96,7 @@ export class CoursesController {
   @Roles('TEACHER', 'ADMIN')
   createChapter(
     @Param('courseId') courseId: string,
-    @Body() dto: any,
+    @Body() dto: CreateChapterDto,
     @CurrentUser() user: any,
   ) {
     return this.svc.createChapter(courseId, dto, user.teacherId);
@@ -104,7 +108,7 @@ export class CoursesController {
   updateChapter(
     @Param('courseId') courseId: string,
     @Param('chapterId') chapterId: string,
-    @Body() dto: any,
+    @Body() dto: UpdateChapterDto,
     @CurrentUser() user: any,
   ) {
     return this.svc.updateChapter(courseId, chapterId, dto, user.teacherId);
@@ -128,7 +132,7 @@ export class CoursesController {
   createLesson(
     @Param('courseId') courseId: string,
     @Param('chapterId') chapterId: string,
-    @Body() dto: any,
+    @Body() dto: CreateLessonDto,
     @CurrentUser() user: any,
   ) {
     return this.svc.createLesson(courseId, chapterId, dto, user.teacherId);
@@ -141,7 +145,7 @@ export class CoursesController {
     @Param('courseId') courseId: string,
     @Param('chapterId') chapterId: string,
     @Param('lessonId') lessonId: string,
-    @Body() dto: any,
+    @Body() dto: UpdateLessonDto,
     @CurrentUser() user: any,
   ) {
     return this.svc.updateLesson(courseId, chapterId, lessonId, dto, user.teacherId);
