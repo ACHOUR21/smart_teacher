@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  AreaChart, Area, BarChart, Bar, LineChart, Line,
+  AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  Legend, ScatterChart, Scatter, ZAxis
+  Legend,
 } from 'recharts';
 import { Users, TrendingUp, ClipboardList, Award, Download, Loader2 } from 'lucide-react';
 import { analyticsApi } from '@/lib/api';
@@ -28,12 +28,6 @@ const FALLBACK_GRADE_DIST = [
   { grade: 'D', range: '60-69', count: 3 },
   { grade: 'F', range: '0-59', count: 1 },
 ];
-
-const STUDENT_SCATTER = Array.from({ length: 30 }, (_, i) => ({
-  attendance: 60 + Math.round(Math.random() * 40),
-  grade: 50 + Math.round(Math.random() * 50),
-  name: `Student ${i + 1}`,
-}));
 
 const COMPLETION_TREND = [
   { month: 'Sep', rate: 60 },
@@ -208,19 +202,18 @@ export default function TeacherAnalyticsPage() {
           </ResponsiveContainer>
         </div>
 
-        {/* Attendance vs grade scatter */}
+        {/* Enrollment per course */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-1">Attendance vs Grade</h3>
-          <p className="text-xs text-gray-400 mb-4">Correlation between attendance rate and final grade</p>
+          <h3 className="font-semibold text-gray-900 dark:text-white mb-1">Students per Course</h3>
+          <p className="text-xs text-gray-400 mb-4">Enrollment count across your published courses</p>
           <ResponsiveContainer width="100%" height={220}>
-            <ScatterChart>
+            <BarChart data={(stats?.courses ?? []).map((c) => ({ name: c.title.length > 18 ? c.title.slice(0, 18) + '…' : c.title, students: c.enrolled }))}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="attendance" name="Attendance" unit="%" tick={{ fontSize: 11 }} label={{ value: 'Attendance %', position: 'insideBottom', offset: -2, fontSize: 11 }} />
-              <YAxis dataKey="grade" name="Grade" unit="%" tick={{ fontSize: 11 }} />
-              <ZAxis range={[40, 40]} />
-              <Tooltip cursor={{ strokeDasharray: '3 3' }} formatter={(v, n) => [`${v}%`, n]} />
-              <Scatter data={STUDENT_SCATTER} fill="#3b82f6" fillOpacity={0.6} />
-            </ScatterChart>
+              <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+              <Tooltip formatter={(v) => [`${v} students`]} />
+              <Bar dataKey="students" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>

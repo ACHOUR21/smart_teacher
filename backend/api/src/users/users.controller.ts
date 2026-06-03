@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Patch, Param, Query, Body,
+  Controller, Get, Post, Patch, Param, Query, Body,
   UseGuards
 } from '@nestjs/common';
 import { UsersService } from './users.service';
@@ -48,6 +48,20 @@ export class UsersController {
   @Roles('PARENT')
   getChildrenSchedule(@CurrentUser() user: any) {
     return this.svc.getChildrenSchedule(user.id);
+  }
+
+  @Get('search-students')
+  @UseGuards(RolesGuard)
+  @Roles('PARENT', 'TEACHER', 'ADMIN')
+  searchStudents(@Query('q') q = '', @Query('limit') limit?: string) {
+    return this.svc.findStudentsForParent(q, limit ? +limit : 10);
+  }
+
+  @Post('link-child')
+  @UseGuards(RolesGuard)
+  @Roles('PARENT')
+  linkChild(@CurrentUser() user: any, @Body('studentUserId') studentUserId: string) {
+    return this.svc.linkChild(user.id, studentUserId);
   }
 
   @Get(':id')

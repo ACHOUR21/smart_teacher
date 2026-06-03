@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -39,10 +39,71 @@ export class UsersService {
       select: {
         id: true, email: true, firstName: true, lastName: true,
         role: true, isActive: true, createdAt: true, avatarUrl: true,
+        student: {
+          select: {
+            id: true, grade: true,
+            _count: { select: { enrollments: true, submissions: true } },
+            enrollments: {
+              include: {
+                course: {
+                  select: { id: true, title: true, isPublished: true },
+                },
+              },
+              take: 6,
+              orderBy: { enrolledAt: 'desc' },
+            },
+          },
+        },
       },
     });
     if (!user) throw new NotFoundException('User not found');
     return user;
+  }
+
+  async findStudentsForParent(search: string, limit = 10) {
+    const where: any = { role: 'STUDENT' };
+    if (search.trim()) {
+      where.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+    const users = await this.prisma.user.findMany({
+      where,
+      select: {
+        id: true, email: true, firstName: true, lastName: true,
+        student: { select: { id: true, grade: true } },
+      },
+      take: limit,
+    });
+    return users.map((u) => ({
+      id: u.id,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      email: u.email,
+      grade: u.student?.grade ?? '',
+      studentId: u.student?.id,
+    }));
+  }
+
+  async linkChild(parentUserId: string, studentUserId: string) {
+    const [parent, student] = await Promise.all([
+      this.prisma.parent.findUnique({ where: { userId: parentUserId } }),
+      this.prisma.student.findUnique({ where: { userId: studentUserId } }),
+    ]);
+    if (!parent) throw new NotFoundException('Parent profile not found');
+    if (!student) throw new NotFoundException('Student not found');
+
+    const existing = await this.prisma.parentStudent.findUnique({
+      where: { parentId_studentId: { parentId: parent.id, studentId: student.id } },
+    });
+    if (existing) throw new ConflictException('Student already linked');
+
+    await this.prisma.parentStudent.create({
+      data: { parentId: parent.id, studentId: student.id },
+    });
+    return { success: true };
   }
 
   async update(id: string, data: { firstName?: string; lastName?: string; avatarUrl?: string }) {

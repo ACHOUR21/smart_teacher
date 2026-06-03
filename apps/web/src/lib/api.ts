@@ -105,6 +105,10 @@ export const usersApi = {
   getStats: () => api.get('/users/stats'),
   getMyChildren: () => api.get('/users/my-children'),
   getChildrenSchedule: () => api.get('/users/my-children/schedule'),
+  searchStudents: (q: string, limit = 10) =>
+    api.get('/users/search-students', { params: { q, limit } }),
+  linkChild: (studentUserId: string) =>
+    api.post('/users/link-child', { studentUserId }),
 };
 
 export const assignmentsApi = {
