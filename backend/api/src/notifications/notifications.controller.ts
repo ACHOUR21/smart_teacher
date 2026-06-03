@@ -4,6 +4,8 @@ import {
 } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 
@@ -39,6 +41,15 @@ export class NotificationsController {
   @Patch('mark-all-read')
   markAllRead(@CurrentUser() user: any) {
     return this.svc.markAllRead(user.id);
+  }
+
+  @Post()
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'TEACHER')
+  create(
+    @Body() body: { userId: string; title: string; body: string; type: string; data?: Record<string, unknown> },
+  ) {
+    return this.svc.create(body);
   }
 
   @Delete(':id')
