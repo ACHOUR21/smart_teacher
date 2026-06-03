@@ -33,25 +33,25 @@ export class LiveSessionsController {
   @UseGuards(RolesGuard)
   @Roles('TEACHER')
   create(@Body() dto: { title: string; courseId: string; scheduledAt?: Date }, @CurrentUser() user: any) {
-    return this.svc.create(dto, user.teacherProfile?.id ?? user.id);
+    return this.svc.create(dto, user.teacherId);
   }
 
   @Patch(':id/start')
   @UseGuards(RolesGuard)
   @Roles('TEACHER')
   start(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.svc.startSession(id, user.teacherProfile?.id ?? user.id);
+    return this.svc.startSession(id, user.teacherId);
   }
 
   @Patch(':id/end')
   @UseGuards(RolesGuard)
   @Roles('TEACHER')
   end(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.svc.endSession(id, user.teacherProfile?.id ?? user.id);
+    return this.svc.endSession(id, user.teacherId);
   }
 
   @Post(':id/join')
   join(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.svc.joinSession(id, user.studentProfile?.id ?? user.id);
+    return this.svc.joinSession(id, user.studentId);
   }
 }

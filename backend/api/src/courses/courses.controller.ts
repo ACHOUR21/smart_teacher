@@ -32,14 +32,14 @@ export class CoursesController {
   // Static routes must come before :id
   @Get('my-enrollments')
   getMyEnrollments(@CurrentUser() user: any) {
-    return this.svc.getMyEnrollments(user.studentProfile?.id ?? user.id);
+    return this.svc.getMyEnrollments(user.studentId);
   }
 
   @Get('my-courses')
   @UseGuards(RolesGuard)
   @Roles('TEACHER')
   getMyTeacherCourses(@CurrentUser() user: any) {
-    return this.svc.getMyTeacherCourses(user.teacherProfile?.id ?? user.id);
+    return this.svc.getMyTeacherCourses(user.teacherId);
   }
 
   @Get('my-certificates')
@@ -56,19 +56,19 @@ export class CoursesController {
   @UseGuards(RolesGuard)
   @Roles('TEACHER', 'ADMIN')
   create(@Body() dto: any, @CurrentUser() user: any) {
-    return this.svc.create(dto, user.teacherProfile?.id ?? user.id);
+    return this.svc.create(dto, user.teacherId);
   }
 
   @Patch(':id')
   @UseGuards(RolesGuard)
   @Roles('TEACHER', 'ADMIN')
   update(@Param('id') id: string, @Body() dto: any, @CurrentUser() user: any) {
-    return this.svc.update(id, dto, user.teacherProfile?.id ?? user.id);
+    return this.svc.update(id, dto, user.teacherId);
   }
 
   @Post(':id/enroll')
   enroll(@Param('id') courseId: string, @CurrentUser() user: any) {
-    return this.svc.enroll(courseId, user.studentProfile?.id ?? user.id);
+    return this.svc.enroll(courseId, user.studentId);
   }
 
   // Lesson progress tracking
@@ -78,12 +78,12 @@ export class CoursesController {
     @Param('lessonId') lessonId: string,
     @CurrentUser() user: any,
   ) {
-    return this.svc.completeLesson(courseId, lessonId, user.studentProfile?.id ?? user.id);
+    return this.svc.completeLesson(courseId, lessonId, user.studentId);
   }
 
   @Get(':courseId/progress')
   getCourseProgress(@Param('courseId') courseId: string, @CurrentUser() user: any) {
-    return this.svc.getCourseProgress(courseId, user.studentProfile?.id ?? user.id);
+    return this.svc.getCourseProgress(courseId, user.studentId);
   }
 
   // Chapter CRUD
@@ -95,7 +95,7 @@ export class CoursesController {
     @Body() dto: any,
     @CurrentUser() user: any,
   ) {
-    return this.svc.createChapter(courseId, dto, user.teacherProfile?.id ?? user.id);
+    return this.svc.createChapter(courseId, dto, user.teacherId);
   }
 
   @Patch(':courseId/chapters/:chapterId')
@@ -107,7 +107,7 @@ export class CoursesController {
     @Body() dto: any,
     @CurrentUser() user: any,
   ) {
-    return this.svc.updateChapter(courseId, chapterId, dto, user.teacherProfile?.id ?? user.id);
+    return this.svc.updateChapter(courseId, chapterId, dto, user.teacherId);
   }
 
   @Delete(':courseId/chapters/:chapterId')
@@ -118,7 +118,7 @@ export class CoursesController {
     @Param('chapterId') chapterId: string,
     @CurrentUser() user: any,
   ) {
-    return this.svc.deleteChapter(courseId, chapterId, user.teacherProfile?.id ?? user.id);
+    return this.svc.deleteChapter(courseId, chapterId, user.teacherId);
   }
 
   // Lesson CRUD
@@ -131,7 +131,7 @@ export class CoursesController {
     @Body() dto: any,
     @CurrentUser() user: any,
   ) {
-    return this.svc.createLesson(courseId, chapterId, dto, user.teacherProfile?.id ?? user.id);
+    return this.svc.createLesson(courseId, chapterId, dto, user.teacherId);
   }
 
   @Patch(':courseId/chapters/:chapterId/lessons/:lessonId')
@@ -144,7 +144,7 @@ export class CoursesController {
     @Body() dto: any,
     @CurrentUser() user: any,
   ) {
-    return this.svc.updateLesson(courseId, chapterId, lessonId, dto, user.teacherProfile?.id ?? user.id);
+    return this.svc.updateLesson(courseId, chapterId, lessonId, dto, user.teacherId);
   }
 
   @Delete(':courseId/chapters/:chapterId/lessons/:lessonId')
@@ -156,6 +156,6 @@ export class CoursesController {
     @Param('lessonId') lessonId: string,
     @CurrentUser() user: any,
   ) {
-    return this.svc.deleteLesson(courseId, chapterId, lessonId, user.teacherProfile?.id ?? user.id);
+    return this.svc.deleteLesson(courseId, chapterId, lessonId, user.teacherId);
   }
 }
