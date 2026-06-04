@@ -1,8 +1,10 @@
-import { Controller, Get, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { AnalyticsService } from './analytics.service';
 
 @ApiTags('analytics')
@@ -14,18 +16,18 @@ export class AnalyticsController {
 
   @Get('teacher')
   @Roles('TEACHER')
-  getTeacherAnalytics(@Request() req: any) {
-    return this.analyticsService.getTeacherAnalytics(req.user.sub);
+  getTeacherAnalytics(@CurrentUser() user: AuthUser) {
+    return this.analyticsService.getTeacherAnalytics(user.id);
   }
 
   @Get('teacher/weekly-engagement')
   @Roles('TEACHER')
   getTeacherWeeklyEngagement(
-    @Request() req: any,
+    @CurrentUser() user: AuthUser,
     @Query('weeks') weeks?: string,
   ) {
     return this.analyticsService.getTeacherWeeklyEngagement(
-      req.user.sub,
+      user.id,
       weeks ? +weeks : 8,
     );
   }
@@ -50,8 +52,8 @@ export class AnalyticsController {
 
   @Get('student')
   @Roles('STUDENT')
-  getStudentAnalytics(@Request() req: any) {
-    return this.analyticsService.getStudentAnalytics(req.user.sub);
+  getStudentAnalytics(@CurrentUser() user: AuthUser) {
+    return this.analyticsService.getStudentAnalytics(user.id);
   }
 
   @Get('audit-logs')

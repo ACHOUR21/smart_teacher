@@ -7,6 +7,10 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AuthUser } from '../auth/interfaces/auth-user.interface';
+import { CreateAssignmentDto } from './dto/create-assignment.dto';
+import { SubmitAssignmentDto } from './dto/submit-assignment.dto';
+import { GradeSubmissionDto } from './dto/grade-submission.dto';
 
 @ApiTags('assignments')
 @ApiBearerAuth()
@@ -28,8 +32,8 @@ export class AssignmentsController {
 
   // NOTE: must come before :id to avoid route collision
   @Get('my-assignments')
-  getMyAssignments(@CurrentUser() user: any) {
-    return this.svc.getMyStudentAssignments(user.studentProfile?.id ?? user.id);
+  getMyAssignments(@CurrentUser() user: AuthUser) {
+    return this.svc.getMyStudentAssignments(user.id);
   }
 
   @Get(':id')
@@ -39,35 +43,36 @@ export class AssignmentsController {
 
   @Post()
   @UseGuards(RolesGuard)
-  @Roles('TEACHER')
-  create(@Body() dto: any) {
-    return this.svc.create(dto);
+  @Roles('TEACHER', 'ADMIN')
+  create(@Body() dto: CreateAssignmentDto, @CurrentUser() user: AuthUser) {
+    return this.svc.create(dto, user.teacherId);
   }
 
   @Post(':id/submit')
   submit(
     @Param('id') id: string,
-    @CurrentUser() user: any,
-    @Body() body: { answers: { questionId: string; answer: string }[] },
+    @CurrentUser() user: AuthUser,
+    @Body() dto: SubmitAssignmentDto,
   ) {
-    return this.svc.submit(id, user.studentProfile?.id ?? user.id, body.answers);
+    return this.svc.submit(id, user.id, dto.answers);
   }
 
   @Get(':id/submissions')
   @UseGuards(RolesGuard)
   @Roles('TEACHER', 'ADMIN')
-  getSubmissions(@Param('id') id: string) {
-    return this.svc.getSubmissions(id);
+  getSubmissions(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.svc.getSubmissions(id, user.teacherId);
   }
 
   @Patch(':id/submissions/:sid/grade')
   @UseGuards(RolesGuard)
-  @Roles('TEACHER')
+  @Roles('TEACHER', 'ADMIN')
   grade(
     @Param('id') assignmentId: string,
     @Param('sid') submissionId: string,
-    @Body() data: { score: number; feedback: string },
+    @Body() dto: GradeSubmissionDto,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.svc.gradeSubmission(assignmentId, submissionId, data);
+    return this.svc.gradeSubmission(assignmentId, submissionId, dto, user.teacherId);
   }
 }

@@ -8,7 +8,10 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Server, Socket } from 'socket.io';
 
-@WebSocketGateway({ cors: { origin: '*' }, namespace: '/realtime' })
+@WebSocketGateway({
+  cors: { origin: process.env.FRONTEND_URL ?? 'http://localhost:3000', credentials: true },
+  namespace: '/realtime',
+})
 export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
   private readonly logger = new Logger(WebsocketGateway.name);
@@ -72,8 +75,10 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     @MessageBody() payload: { sessionId: string; content: string },
     @ConnectedSocket() client: Socket,
   ) {
+    const content = typeof payload.content === 'string' ? payload.content.trim().slice(0, 2000) : '';
+    if (!content) return { status: 'ignored' };
     this.server.to(`session:${payload.sessionId}`).emit('chat-message', {
-      userId: client.data.userId, content: payload.content,
+      userId: client.data.userId, content,
       sessionId: payload.sessionId, at: new Date().toISOString(),
     });
     return { status: 'sent' };

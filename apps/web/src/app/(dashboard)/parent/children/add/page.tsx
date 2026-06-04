@@ -8,56 +8,71 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
   ArrowLeft, Search, UserPlus, CheckCircle2,
-  Loader2, User, Mail, AlertCircle
+  Loader2, Mail, AlertCircle
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { usersApi } from '@/lib/api';
 
 const searchSchema = z.object({
   query: z.string().min(3, 'Enter at least 3 characters'),
 });
 
-const MOCK_STUDENTS = [
-  { id: 's1', firstName: 'Layla', lastName: 'Hassan', email: 'layla.hassan@student.edu', grade: '9th Grade' },
-  { id: 's2', firstName: 'Omar', lastName: 'Hassan', email: 'omar.hassan@student.edu', grade: '7th Grade' },
-  { id: 's3', firstName: 'Sara', lastName: 'Ahmed', email: 'sara.ahmed@student.edu', grade: '10th Grade' },
-];
+interface StudentResult {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  grade: string;
+  studentId?: string;
+}
 
 export default function AddChildPage() {
   const router = useRouter();
   const [step, setStep] = useState<'search' | 'confirm' | 'done'>('search');
-  const [searchResults, setSearchResults] = useState<typeof MOCK_STUDENTS>([]);
-  const [selected, setSelected] = useState<(typeof MOCK_STUDENTS)[0] | null>(null);
+  const [searchResults, setSearchResults] = useState<StudentResult[]>([]);
+  const [searched, setSearched] = useState(false);
+  const [selected, setSelected] = useState<StudentResult | null>(null);
   const [searching, setSearching] = useState(false);
   const [linking, setLinking] = useState(false);
 
-  const { register, handleSubmit, formState: { errors } } = useForm({
+  const { register, handleSubmit, formState: { errors } } = useForm<{ query: string }>({
     resolver: zodResolver(searchSchema),
   });
 
   const onSearch = async (data: { query: string }) => {
     setSearching(true);
-    await new Promise((r) => setTimeout(r, 800));
-    const q = data.query.toLowerCase();
-    setSearchResults(MOCK_STUDENTS.filter(
-      (s) => s.firstName.toLowerCase().includes(q) ||
-             s.lastName.toLowerCase().includes(q) ||
-             s.email.toLowerCase().includes(q)
-    ));
-    setSearching(false);
+    setSearched(false);
+    try {
+      const res = await usersApi.searchStudents(data.query, 10);
+      setSearchResults(res.data ?? []);
+    } catch {
+      toast.error('Search failed. Please try again.');
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+      setSearched(true);
+    }
   };
 
-  const handleSelect = (student: typeof MOCK_STUDENTS[0]) => {
+  const handleSelect = (student: StudentResult) => {
     setSelected(student);
     setStep('confirm');
   };
 
   const handleConfirm = async () => {
+    if (!selected) return;
     setLinking(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setLinking(false);
-    setStep('done');
-    toast.success(`${selected?.firstName} has been linked to your account`);
+    try {
+      await usersApi.linkChild(selected.id);
+      setStep('done');
+      toast.success(`${selected.firstName} has been linked to your account`);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? 'Failed to link student';
+      toast.error(msg);
+    } finally {
+      setLinking(false);
+    }
   };
 
   return (
@@ -87,7 +102,7 @@ export default function AddChildPage() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
                       {...register('query')}
-                      placeholder="e.g. Layla Hassan or layla@student.edu"
+                      placeholder="e.g. Amir Hassan or amir@student.edu"
                       className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                     />
                   </div>
@@ -126,7 +141,7 @@ export default function AddChildPage() {
                           {student.firstName} {student.lastName}
                         </p>
                         <p className="text-sm text-gray-500 dark:text-gray-400">{student.email}</p>
-                        <p className="text-xs text-gray-400">{student.grade}</p>
+                        {student.grade && <p className="text-xs text-gray-400">{student.grade}</p>}
                       </div>
                       <button className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-lg text-sm font-medium hover:bg-primary-100">
                         <UserPlus className="w-3.5 h-3.5" /> Select
@@ -137,13 +152,13 @@ export default function AddChildPage() {
               </motion.div>
             )}
 
-            {searchResults.length === 0 && (
+            {searched && searchResults.length === 0 && (
               <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex gap-3">
                 <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Student not found?</p>
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-300">No students found</p>
                   <p className="text-sm text-amber-700 dark:text-amber-400">
-                    Ask your child's school administrator to provide the correct student ID or email registered in the system.
+                    Ask your child's school administrator to confirm the name or email registered in the system.
                   </p>
                 </div>
               </div>
@@ -167,7 +182,7 @@ export default function AddChildPage() {
                 <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
                   <Mail className="w-3.5 h-3.5" /> {selected.email}
                 </p>
-                <p className="text-sm text-gray-400">{selected.grade}</p>
+                {selected.grade && <p className="text-sm text-gray-400">{selected.grade}</p>}
               </div>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
@@ -213,7 +228,7 @@ export default function AddChildPage() {
                 View Children
               </Link>
               <button
-                onClick={() => { setStep('search'); setSearchResults([]); setSelected(null); }}
+                onClick={() => { setStep('search'); setSearchResults([]); setSelected(null); setSearched(false); }}
                 className="px-6 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
                 Add Another

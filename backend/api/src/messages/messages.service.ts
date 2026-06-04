@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -97,7 +97,7 @@ export class MessagesService {
       where: { conversationId_userId: { conversationId, userId: senderId } },
     });
     if (!participation) throw new ForbiddenException('Not a participant of this conversation');
-    if (!content?.trim()) throw new NotFoundException('Message content cannot be empty');
+    if (!content?.trim()) throw new BadRequestException('Message content cannot be empty');
 
     const [message] = await this.prisma.$transaction([
       this.prisma.message.create({

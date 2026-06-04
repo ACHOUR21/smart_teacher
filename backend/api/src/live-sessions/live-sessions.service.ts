@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { randomUUID } from 'crypto';
 
@@ -15,10 +16,10 @@ export class LiveSessionsService {
     offset?: number;
   }) {
     const { courseId, teacherId, status, upcoming, limit = 20, offset = 0 } = params;
-    const where: any = {};
+    const where: Prisma.LiveSessionWhereInput = {};
     if (courseId) where.courseId = courseId;
     if (teacherId) where.teacherId = teacherId;
-    if (status) where.status = status;
+    if (status) where.status = status as Prisma.EnumSessionStatusFilter['equals'];
     if (upcoming) {
       where.OR = [
         { status: 'LIVE' },

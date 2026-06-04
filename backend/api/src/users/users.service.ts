@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -6,8 +7,8 @@ export class UsersService {
   constructor(private prisma: PrismaService) {}
 
   async findAll(params: { role?: string; search?: string; limit?: number; offset?: number }) {
-    const where: any = {};
-    if (params.role) where.role = params.role.toUpperCase();
+    const where: Prisma.UserWhereInput = {};
+    if (params.role) where.role = params.role.toUpperCase() as Prisma.EnumRoleFilter['equals'];
     if (params.search) {
       where.OR = [
         { firstName: { contains: params.search, mode: 'insensitive' } },
@@ -39,10 +40,71 @@ export class UsersService {
       select: {
         id: true, email: true, firstName: true, lastName: true,
         role: true, isActive: true, createdAt: true, avatarUrl: true,
+        student: {
+          select: {
+            id: true, grade: true,
+            _count: { select: { enrollments: true, submissions: true } },
+            enrollments: {
+              include: {
+                course: {
+                  select: { id: true, title: true, isPublished: true },
+                },
+              },
+              take: 6,
+              orderBy: { enrolledAt: 'desc' },
+            },
+          },
+        },
       },
     });
     if (!user) throw new NotFoundException('User not found');
     return user;
+  }
+
+  async findStudentsForParent(search: string, limit = 10) {
+    const where: Prisma.UserWhereInput = { role: 'STUDENT' };
+    if (search.trim()) {
+      where.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+    const users = await this.prisma.user.findMany({
+      where,
+      select: {
+        id: true, email: true, firstName: true, lastName: true,
+        student: { select: { id: true, grade: true } },
+      },
+      take: limit,
+    });
+    return users.map((u) => ({
+      id: u.id,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      email: u.email,
+      grade: u.student?.grade ?? '',
+      studentId: u.student?.id,
+    }));
+  }
+
+  async linkChild(parentUserId: string, studentUserId: string) {
+    const [parent, student] = await Promise.all([
+      this.prisma.parent.findUnique({ where: { userId: parentUserId } }),
+      this.prisma.student.findUnique({ where: { userId: studentUserId } }),
+    ]);
+    if (!parent) throw new NotFoundException('Parent profile not found');
+    if (!student) throw new NotFoundException('Student not found');
+
+    const existing = await this.prisma.parentStudent.findUnique({
+      where: { parentId_studentId: { parentId: parent.id, studentId: student.id } },
+    });
+    if (existing) throw new ConflictException('Student already linked');
+
+    await this.prisma.parentStudent.create({
+      data: { parentId: parent.id, studentId: student.id },
+    });
+    return { success: true };
   }
 
   async update(id: string, data: { firstName?: string; lastName?: string; avatarUrl?: string }) {
@@ -171,7 +233,11 @@ export class UsersService {
     if (!parent) return [];
 
     const seen = new Set<string>();
-    const sessions: any[] = [];
+    const sessions: Array<{
+      id: string; title: string; courseName: string; status: string;
+      scheduledAt: Date | null; startedAt: Date | null; roomId: string | null;
+      teacherName: string; childName: string; childId: string;
+    }> = [];
 
     for (const ps of parent.children) {
       const { student } = ps;

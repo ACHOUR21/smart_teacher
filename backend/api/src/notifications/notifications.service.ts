@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -52,7 +53,7 @@ export class NotificationsService {
         title: data.title,
         body: data.body,
         type: data.type,
-        data: data.data ?? {},
+        data: (data.data ?? {}) as Prisma.InputJsonValue,
       },
     });
   }

@@ -89,7 +89,7 @@ export class AuthService {
 
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { resetToken: token, resetTokenExpires: expires } as any,
+      data: { resetToken: token, resetTokenExpires: expires },
     });
 
     const resetUrl = `${this.config.get('APP_URL', 'http://localhost:3000')}/reset-password?token=${token}`;
@@ -103,7 +103,7 @@ export class AuthService {
   }
 
   async resetPassword(token: string, newPassword: string) {
-    const user = await (this.prisma.user as any).findFirst({
+    const user = await this.prisma.user.findFirst({
       where: {
         resetToken: token,
         resetTokenExpires: { gt: new Date() },
@@ -114,7 +114,7 @@ export class AuthService {
     const hash = await bcrypt.hash(newPassword, 12);
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { passwordHash: hash, resetToken: null, resetTokenExpires: null } as any,
+      data: { passwordHash: hash, resetToken: null, resetTokenExpires: null },
     });
   }
 
@@ -187,7 +187,7 @@ export class AuthService {
     }
   }
 
-  private sanitizeUser(user: any) {
+  private sanitizeUser(user: Record<string, unknown>) {
     const { passwordHash, ...safe } = user;
     return safe;
   }

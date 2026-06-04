@@ -1,7 +1,9 @@
 import { Body, Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { AuthUser } from './interfaces/auth-user.interface';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import {
   IsEmail, IsString, MinLength, IsEnum,
@@ -45,6 +47,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Register a new user' })
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
@@ -52,6 +55,7 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiOperation({ summary: 'Login and get tokens' })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto.email, dto.password);
@@ -69,7 +73,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Logout current user' })
-  logout(@CurrentUser() user: any) {
+  logout(@CurrentUser() user: AuthUser) {
     return this.authService.logout(user.id);
   }
 
@@ -77,12 +81,13 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current user profile' })
-  getMe(@CurrentUser() user: any) {
+  getMe(@CurrentUser() user: AuthUser) {
     return this.authService.getMe(user.id);
   }
 
   @Post('forgot-password')
   @HttpCode(200)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Send password reset email' })
   forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto.email);
@@ -100,7 +105,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Change password for authenticated user' })
-  changePassword(@Body() dto: ChangePasswordDto, @CurrentUser() user: any) {
+  changePassword(@Body() dto: ChangePasswordDto, @CurrentUser() user: AuthUser) {
     return this.authService.changePassword(user.id, dto.currentPassword, dto.newPassword);
   }
 }

@@ -147,7 +147,7 @@ export default function TeacherGradesPage() {
               { label: 'Class Average', value: avg != null ? `${avg}%` : '—', color: 'text-blue-600 dark:text-blue-400' },
               { label: 'Highest Grade', value: highest != null ? `${highest}%` : '—', color: 'text-green-600 dark:text-green-400' },
               { label: 'Lowest Grade', value: lowest != null ? `${lowest}%` : '—', color: 'text-red-600 dark:text-red-400' },
-              { label: 'Submissions', value: submissions.length || selectedCourse?.submissionsCount ?? '—', color: 'text-primary-600' },
+              { label: 'Submissions', value: (submissions.length || selectedCourse?.submissionsCount) ?? '—', color: 'text-primary-600' },
             ].map((stat, i) => (
               <motion.div
                 key={stat.label}

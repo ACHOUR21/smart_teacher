@@ -5,8 +5,8 @@ let socket: Socket | null = null;
 export function getSocket(): Socket {
   if (!socket) {
     const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-    socket = io(process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:4000', {
-      namespace: '/realtime',
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:4000';
+    socket = io(`${wsUrl}/realtime`, {
       auth: { token },
       autoConnect: false,
     });
@@ -14,7 +14,7 @@ export function getSocket(): Socket {
   return socket;
 }
 
-export function connectSocket() {
+export function connectSocket(_token?: string) {
   const s = getSocket();
   if (!s.connected) s.connect();
   return s;

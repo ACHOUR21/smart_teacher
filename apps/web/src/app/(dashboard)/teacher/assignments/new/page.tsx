@@ -44,7 +44,9 @@ export default function NewAssignmentPage() {
       .catch(() => setCourses([]));
   }, []);
 
-  const { register, handleSubmit, getValues, formState: { errors } } = useForm({
+  const { register, handleSubmit, getValues, formState: { errors } } = useForm<{
+    title: string; description: string; courseId: string; dueDate: string; totalPoints: number;
+  }>({
     resolver: zodResolver(detailsSchema),
     defaultValues: { totalPoints: 100 },
   });

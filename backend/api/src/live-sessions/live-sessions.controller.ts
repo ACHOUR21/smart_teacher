@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AuthUser } from '../auth/interfaces/auth-user.interface';
 
 @ApiTags('live-sessions')
 @ApiBearerAuth()
@@ -32,26 +33,26 @@ export class LiveSessionsController {
   @Post()
   @UseGuards(RolesGuard)
   @Roles('TEACHER')
-  create(@Body() dto: { title: string; courseId: string; scheduledAt?: Date }, @CurrentUser() user: any) {
-    return this.svc.create(dto, user.teacherProfile?.id ?? user.id);
+  create(@Body() dto: { title: string; courseId: string; scheduledAt?: Date }, @CurrentUser() user: AuthUser) {
+    return this.svc.create(dto, user.teacherId);
   }
 
   @Patch(':id/start')
   @UseGuards(RolesGuard)
   @Roles('TEACHER')
-  start(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.svc.startSession(id, user.teacherProfile?.id ?? user.id);
+  start(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.svc.startSession(id, user.teacherId);
   }
 
   @Patch(':id/end')
   @UseGuards(RolesGuard)
   @Roles('TEACHER')
-  end(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.svc.endSession(id, user.teacherProfile?.id ?? user.id);
+  end(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.svc.endSession(id, user.teacherId);
   }
 
   @Post(':id/join')
-  join(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.svc.joinSession(id, user.studentProfile?.id ?? user.id);
+  join(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.svc.joinSession(id, user.studentId);
   }
 }

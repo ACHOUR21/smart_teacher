@@ -76,9 +76,9 @@ export class AnalyticsService {
       ]);
 
       return this.buildWeekBuckets(now, weeks, [
-        { data: completions as any[], dateField: 'completedAt', key: 'views' },
-        { data: submissions as any[], dateField: 'submittedAt', key: 'submissions' },
-        { data: attendances as any[], dateField: 'joinedAt', key: 'liveAttendance' },
+        { data: completions as Array<Record<string, unknown>>, dateField: 'completedAt', key: 'views' },
+        { data: submissions as Array<Record<string, unknown>>, dateField: 'submittedAt', key: 'submissions' },
+        { data: attendances as Array<Record<string, unknown>>, dateField: 'joinedAt', key: 'liveAttendance' },
       ]);
     }, 60_000);
   }
@@ -100,8 +100,8 @@ export class AnalyticsService {
       ]);
 
       return this.buildWeekBuckets(now, weeks, [
-        { data: attendances as any[], dateField: 'joinedAt', key: 'sessions' },
-        { data: aiSessions as any[], dateField: 'createdAt', key: 'aiChats' },
+        { data: attendances as Array<Record<string, unknown>>, dateField: 'joinedAt', key: 'sessions' },
+        { data: aiSessions as Array<Record<string, unknown>>, dateField: 'createdAt', key: 'aiChats' },
       ]);
     }, 2 * 60_000);
   }

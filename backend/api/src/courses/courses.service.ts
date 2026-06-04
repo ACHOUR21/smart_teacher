@@ -1,6 +1,11 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CacheService } from '../cache/cache.service';
+import { CreateCourseDto } from './dto/create-course.dto';
+import { UpdateCourseDto } from './dto/update-course.dto';
+import { CreateChapterDto, UpdateChapterDto } from './dto/chapter.dto';
+import { CreateLessonDto, UpdateLessonDto } from './dto/lesson.dto';
 
 @Injectable()
 export class CoursesService {
@@ -23,7 +28,7 @@ export class CoursesService {
     return this.cache.wrap(
       cacheKey,
       async () => {
-        const where: any = {};
+        const where: Prisma.CourseWhereInput = {};
         if (search) {
           where.OR = [
             { title: { contains: search, mode: 'insensitive' } },
@@ -83,7 +88,7 @@ export class CoursesService {
     );
   }
 
-  async create(dto: any, teacherId: string) {
+  async create(dto: CreateCourseDto, teacherId: string) {
     const course = await this.prisma.course.create({
       data: {
         title: dto.title,
@@ -99,7 +104,7 @@ export class CoursesService {
     return course;
   }
 
-  async update(id: string, dto: any, teacherId: string) {
+  async update(id: string, dto: UpdateCourseDto, teacherId: string) {
     const course = await this.prisma.course.findUnique({ where: { id } });
     if (!course) throw new NotFoundException(`Course ${id} not found`);
     if (course.teacherId !== teacherId) throw new ForbiddenException();
@@ -261,7 +266,7 @@ export class CoursesService {
     });
   }
 
-  async createChapter(courseId: string, dto: { title: string; order?: number }, teacherId: string) {
+  async createChapter(courseId: string, dto: CreateChapterDto, teacherId: string) {
     const course = await this.prisma.course.findUnique({ where: { id: courseId } });
     if (!course) throw new NotFoundException(`Course ${courseId} not found`);
     if (course.teacherId !== teacherId) throw new ForbiddenException();
@@ -278,14 +283,14 @@ export class CoursesService {
   async updateChapter(
     courseId: string,
     chapterId: string,
-    dto: { title?: string; order?: number },
+    dto: UpdateChapterDto,
     teacherId: string,
   ) {
     const chapter = await this.prisma.chapter.findFirst({ where: { id: chapterId, courseId } });
     if (!chapter) throw new NotFoundException('Chapter not found');
     const course = await this.prisma.course.findUnique({ where: { id: courseId } });
     if (!course || course.teacherId !== teacherId) throw new ForbiddenException();
-    const data: any = {};
+    const data: Prisma.ChapterUpdateInput = {};
     if (dto.title !== undefined) data.title = dto.title;
     if (dto.order !== undefined) data.order = dto.order;
     const updated = await this.prisma.chapter.update({ where: { id: chapterId }, data });
@@ -315,7 +320,7 @@ export class CoursesService {
   async createLesson(
     courseId: string,
     chapterId: string,
-    dto: any,
+    dto: CreateLessonDto,
     teacherId: string,
   ) {
     const chapter = await this.prisma.chapter.findFirst({ where: { id: chapterId, courseId } });
@@ -342,14 +347,14 @@ export class CoursesService {
     courseId: string,
     chapterId: string,
     lessonId: string,
-    dto: any,
+    dto: UpdateLessonDto,
     teacherId: string,
   ) {
     const lesson = await this.prisma.lesson.findFirst({ where: { id: lessonId, chapterId } });
     if (!lesson) throw new NotFoundException('Lesson not found');
     const course = await this.prisma.course.findUnique({ where: { id: courseId } });
     if (!course || course.teacherId !== teacherId) throw new ForbiddenException();
-    const data: any = {};
+    const data: Prisma.LessonUpdateInput = {};
     if (dto.title !== undefined) data.title = dto.title;
     if (dto.type !== undefined) data.type = dto.type;
     if (dto.content !== undefined) data.content = dto.content;
