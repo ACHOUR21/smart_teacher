@@ -4,6 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -146,7 +147,7 @@ export class AssignmentsService {
       data: {
         assignmentId: id,
         studentId: student.id,
-        answers: answers as any,
+        answers: answers as unknown as Prisma.InputJsonValue,
         score: hasText ? null : score,
         status,
         submittedAt: new Date(),

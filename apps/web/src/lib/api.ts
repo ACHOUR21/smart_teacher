@@ -13,7 +13,7 @@ api.interceptors.request.use((config) => {
 });
 
 let isRefreshing = false;
-let refreshQueue: ((token: string) => void)[] = [];
+let refreshQueue: Array<{ resolve: (token: string) => void; reject: (err: unknown) => void }> = [];
 
 api.interceptors.response.use(
   (res) => res,
@@ -22,11 +22,11 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !original._retry) {
       original._retry = true;
       if (isRefreshing) {
-        return new Promise((resolve) => {
-          refreshQueue.push((token) => {
-            original.headers.Authorization = `Bearer ${token}`;
-            resolve(api(original));
-          });
+        return new Promise<string>((resolve, reject) => {
+          refreshQueue.push({ resolve, reject });
+        }).then((token) => {
+          original.headers.Authorization = `Bearer ${token}`;
+          return api(original);
         });
       }
 
@@ -38,11 +38,13 @@ api.interceptors.response.use(
         const newToken = data.accessToken;
         localStorage.setItem('accessToken', newToken);
         if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
-        refreshQueue.forEach((cb) => cb(newToken));
+        refreshQueue.forEach(({ resolve }) => resolve(newToken));
         refreshQueue = [];
         original.headers.Authorization = `Bearer ${newToken}`;
         return api(original);
-      } catch {
+      } catch (err) {
+        refreshQueue.forEach(({ reject }) => reject(err));
+        refreshQueue = [];
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         if (typeof window !== 'undefined') window.location.href = '/login';

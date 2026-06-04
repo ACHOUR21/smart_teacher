@@ -75,8 +75,10 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     @MessageBody() payload: { sessionId: string; content: string },
     @ConnectedSocket() client: Socket,
   ) {
+    const content = typeof payload.content === 'string' ? payload.content.trim().slice(0, 2000) : '';
+    if (!content) return { status: 'ignored' };
     this.server.to(`session:${payload.sessionId}`).emit('chat-message', {
-      userId: client.data.userId, content: payload.content,
+      userId: client.data.userId, content,
       sessionId: payload.sessionId, at: new Date().toISOString(),
     });
     return { status: 'sent' };
