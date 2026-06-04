@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
@@ -65,7 +66,12 @@ export class AssignmentsService {
       correctAnswer?: string;
       points: number;
     }[];
-  }) {
+  }, teacherId?: string) {
+    if (teacherId) {
+      const course = await this.prisma.course.findUnique({ where: { id: dto.courseId } });
+      if (!course) throw new NotFoundException(`Course ${dto.courseId} not found`);
+      if (course.teacherId !== teacherId) throw new ForbiddenException();
+    }
     const { questions, ...assignmentData } = dto;
     return this.prisma.assignment.create({
       data: {
@@ -156,9 +162,13 @@ export class AssignmentsService {
     });
   }
 
-  async getSubmissions(assignmentId: string) {
-    const exists = await this.prisma.assignment.findUnique({ where: { id: assignmentId } });
-    if (!exists) throw new NotFoundException(`Assignment ${assignmentId} not found`);
+  async getSubmissions(assignmentId: string, teacherId?: string) {
+    const assignment = await this.prisma.assignment.findUnique({
+      where: { id: assignmentId },
+      include: { course: { select: { teacherId: true } } },
+    });
+    if (!assignment) throw new NotFoundException(`Assignment ${assignmentId} not found`);
+    if (teacherId && assignment.course.teacherId !== teacherId) throw new ForbiddenException();
 
     return this.prisma.submission.findMany({
       where: { assignmentId },
@@ -177,7 +187,15 @@ export class AssignmentsService {
     assignmentId: string,
     submissionId: string,
     data: { score: number; feedback?: string },
+    teacherId?: string,
   ) {
+    const assignment = await this.prisma.assignment.findUnique({
+      where: { id: assignmentId },
+      include: { course: { select: { teacherId: true } } },
+    });
+    if (!assignment) throw new NotFoundException(`Assignment ${assignmentId} not found`);
+    if (teacherId && assignment.course.teacherId !== teacherId) throw new ForbiddenException();
+
     const sub = await this.prisma.submission.findFirst({
       where: { id: submissionId, assignmentId },
     });

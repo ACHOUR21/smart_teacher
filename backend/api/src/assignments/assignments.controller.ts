@@ -43,9 +43,9 @@ export class AssignmentsController {
 
   @Post()
   @UseGuards(RolesGuard)
-  @Roles('TEACHER')
-  create(@Body() dto: CreateAssignmentDto) {
-    return this.svc.create(dto);
+  @Roles('TEACHER', 'ADMIN')
+  create(@Body() dto: CreateAssignmentDto, @CurrentUser() user: AuthUser) {
+    return this.svc.create(dto, user.teacherId);
   }
 
   @Post(':id/submit')
@@ -60,18 +60,19 @@ export class AssignmentsController {
   @Get(':id/submissions')
   @UseGuards(RolesGuard)
   @Roles('TEACHER', 'ADMIN')
-  getSubmissions(@Param('id') id: string) {
-    return this.svc.getSubmissions(id);
+  getSubmissions(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.svc.getSubmissions(id, user.teacherId);
   }
 
   @Patch(':id/submissions/:sid/grade')
   @UseGuards(RolesGuard)
-  @Roles('TEACHER')
+  @Roles('TEACHER', 'ADMIN')
   grade(
     @Param('id') assignmentId: string,
     @Param('sid') submissionId: string,
     @Body() dto: GradeSubmissionDto,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.svc.gradeSubmission(assignmentId, submissionId, dto);
+    return this.svc.gradeSubmission(assignmentId, submissionId, dto, user.teacherId);
   }
 }

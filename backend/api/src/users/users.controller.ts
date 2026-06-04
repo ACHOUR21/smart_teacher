@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Patch, Param, Query, Body,
-  UseGuards
+  UseGuards, ForbiddenException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -72,9 +72,7 @@ export class UsersController {
 
   @Patch(':id')
   update(@Param('id') id: string, @Body() body: { firstName?: string; lastName?: string; avatarUrl?: string }, @CurrentUser() user: AuthUser) {
-    if (user.role !== 'ADMIN' && user.id !== id) {
-      return { error: 'Forbidden' };
-    }
+    if (user.role !== 'ADMIN' && user.id !== id) throw new ForbiddenException();
     return this.svc.update(id, body);
   }
 
